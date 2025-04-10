@@ -1,0 +1,1 @@
+- The X Y Z are in same way as in minecraft. X and Z are the horizontal coordinates, Y is the vertical coordinate.
