@@ -4,12 +4,16 @@ export async function fetchMapData(latitude, longitude, width, height) {
     const overpassApiUrl = 'https://overpass-api.de/api/interpreter';
     const bbox = calculateBoundingBox(latitude, longitude, width, height);
     const query = `
-        [out:json];
+        [out:json][timeout:25];
         (
             way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             way["highway"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             way["natural"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             way["waterway"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["natural"="wood"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["landuse"="forest"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            relation["natural"="wood"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            relation["landuse"="forest"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
         );
         (._;>;);
         out body;
@@ -26,6 +30,7 @@ export async function fetchMapData(latitude, longitude, width, height) {
         }
         console.log('API response:', response);
         const data = await response.json();
+        console.log('Forests:', data.elements.filter(el => el.tags && (el.tags.natural === 'wood' || el.tags.landuse === 'forest')));
         return processMapData(data);
     } catch (error) {
         console.error('Error fetching map data:', error);
@@ -66,7 +71,7 @@ function processMapData(data) {
             } else if (element.tags.highway) {
                 roads.push({ path: vertices, tags: element.tags });
             } else if (element.tags.natural) {
-                naturals.push({ path: vertices });
+                naturals.push({ path: vertices, tags: element.tags });
             } else if (element.tags.waterway) {
                 waterways.push({ path: vertices });
             }
@@ -106,29 +111,35 @@ export function renderRoads(roads, coords, scene) {
 
         if (road.tags.highway === 'tertiary') {
             width = 7; // Wider for tertiary roads
-            drawLines = true; // Draw white lines for footway
+            drawLines = true; // Draw white lines for tertiary
             color = 0x616267;
         } else if (road.tags.highway === 'footway') {
             width = 1.5;
             color = 0x8B4513;
             drawLines = true; // Draw white lines for footway
         } else if (road.tags.highway === 'residential') {
-            width = 6
+            width = 6;
             color = 0x616267;
             drawLines = true; // Draw white lines for residential
         }
 
-        for (let i = 0; i < road.path.length - 1; i++) {
-            const start = road.path[i];
-            const end = road.path[i + 1];
+        // Convert path vertices to THREE.Vector3
+        const points = path.map(vertex => new THREE.Vector3(
+            (vertex.x - coords.longitude) * 111320, // Convert longitude to meters
+            height,                                 // Set height based on priority
+            -(vertex.z - coords.latitude) * 111320 // Convert latitude to meters and invert z-axis
+        ));
 
-            const startX = (start.x - coords.longitude) * 111320; // Convert longitude to meters
-            const startZ = -(start.z - coords.latitude) * 111320; // Invert z-axis
-            const endX = (end.x - coords.longitude) * 111320;
-            const endZ = -(end.z - coords.latitude) * 111320; // Invert z-axis
+        // Create a smooth curve using CatmullRomCurve3
+        const curve = new THREE.CatmullRomCurve3(points);
+        const curvePoints = curve.getPoints(50); // Increase the number of points for smoother curves
 
-            const dx = endX - startX;
-            const dz = endZ - startZ;
+        for (let i = 0; i < curvePoints.length - 1; i++) {
+            const start = curvePoints[i];
+            const end = curvePoints[i + 1];
+
+            const dx = end.x - start.x;
+            const dz = end.z - start.z;
             const length = Math.sqrt(dx * dx + dz * dz);
 
             // Create the road geometry using PlaneGeometry
@@ -138,9 +149,9 @@ export function renderRoads(roads, coords, scene) {
 
             // Position the road segment
             roadMesh.position.set(
-                (startX + endX) / 2, // Midpoint of the segment
-                height,              // Height based on priority
-                (startZ + endZ) / 2  // Midpoint of the segment
+                (start.x + end.x) / 2, // Midpoint of the segment
+                height,                // Height based on priority
+                (start.z + end.z) / 2  // Midpoint of the segment
             );
 
             // Rotate the road segment to align with the path
@@ -159,9 +170,9 @@ export function renderRoads(roads, coords, scene) {
 
                 // Position the line segment
                 lineMesh.position.set(
-                    (startX + endX) / 2, // Midpoint of the segment
-                    height + 0.001,      // Slightly above the road to avoid z-fighting
-                    (startZ + endZ) / 2  // Midpoint of the segment
+                    (start.x + end.x) / 2, // Midpoint of the segment
+                    height + 0.001,        // Slightly above the road to avoid z-fighting
+                    (start.z + end.z) / 2  // Midpoint of the segment
                 );
 
                 // Rotate the line segment to align with the path

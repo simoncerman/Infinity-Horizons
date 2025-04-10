@@ -35,6 +35,14 @@ const largeCube = new THREE.Mesh(largeCubeGeometry, largeCubeMaterial);
 largeCube.position.set(0, 0, 0); // Set large cube to the center of the scene
 scene.add(largeCube);
 
+// Add a plane under the whole map
+const planeGeometry = new THREE.PlaneGeometry(1000, 1000); // Large plane
+const planeMaterial = new THREE.MeshBasicMaterial({ color: 0x8cc543, side: THREE.DoubleSide });
+const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+plane.rotation.x = -Math.PI / 2; // Rotate to lie flat
+plane.position.y = -0.2; // Position at ground level
+scene.add(plane);
+
 // Add lighting to the scene
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Soft white light
 
@@ -78,7 +86,7 @@ function handleMouseMove(event) {
         const deltaY = event.clientY - controls.dragStart.y;
         camera.position.x -= deltaX * 0.01; // Adjust the multiplier for sensitivity
         camera.position.z -= deltaY * 0.01; // Adjust the multiplier for sensitivity
-        camera.rotation.x = controls.rotation.x;
+        //camera.rotation.x = controls.rotation.x;
         camera.rotation.y = controls.rotation.y;
         camera.rotation.z = controls.rotation.z;
     }
@@ -87,6 +95,21 @@ function handleMouseMove(event) {
 function handleMouseUp() {
     controls.dragging = false;
 }
+
+function handleScroll(event) {
+    const scrollSpeed = 1; // Adjust the multiplier for sensitivity
+    camera.position.y -= event.deltaY * 0.03 * scrollSpeed; // Scroll up moves down, scroll down moves up
+    camera.position.y = Math.max(5, camera.position.y); // Prevent the camera from going below ground level (minimum height is 5)
+
+    // Adjust the camera's X rotation based on height
+    const maxAngle = -Math.PI / 4; // Maximum downward angle (-45 degrees)
+    const minAngle = 0; // Straight angle (0 degrees)
+    const heightRange = 50; // Height range for smooth transition
+    const normalizedHeight = Math.min(1, (camera.position.y - 5) / heightRange); // Normalize height between 0 and 1
+    camera.rotation.x = minAngle + normalizedHeight * (maxAngle - minAngle); // Interpolate between minAngle and maxAngle
+}
+
+window.addEventListener('wheel', handleScroll);
 
 function updateCameraPosition() {
     const speed = 0.5;
@@ -106,7 +129,7 @@ function updateCameraPosition() {
         camera.position.x += Math.cos(controls.rotation.y) * speed;
         camera.position.z -= Math.sin(controls.rotation.y) * speed;
     }
-    camera.rotation.x = controls.rotation.x;
+    //camera.rotation.x = controls.rotation.x;
     camera.rotation.y = controls.rotation.y;
     camera.rotation.z = controls.rotation.z;
 }
@@ -144,6 +167,7 @@ getUserPosition()
 
             scene.add(ambientLight);
             scene.add(directionalLight);
+            scene.add(plane);   
 
             // Refresh the view by rendering the scene
             renderer.render(scene, camera);
@@ -209,7 +233,7 @@ posZInput.addEventListener('input', () => {
 });
 
 rotXInput.addEventListener('input', () => {
-    camera.rotation.x = parseFloat(rotXInput.value) * (Math.PI / 180);
+    //camera.rotation.x = parseFloat(rotXInput.value) * (Math.PI / 180);
 });
 
 rotYInput.addEventListener('input', () => {
