@@ -62,7 +62,7 @@ function processMapData(data) {
         if (element.type === 'way') {
             const vertices = element.nodes.map(nodeId => nodes[nodeId]);
             if (element.tags.building) {
-                buildings.push({ vertices, height: parseFloat(element.tags.height) || 10 });
+                buildings.push({ vertices, tags: element.tags });
             } else if (element.tags.highway) {
                 roads.push({ path: vertices, tags: element.tags });
             } else if (element.tags.natural) {
@@ -104,9 +104,9 @@ export function renderRoads(roads, coords, scene) {
             const end = road.path[i + 1];
 
             const startX = (start.x - coords.longitude) * 111320; // Convert longitude to meters
-            const startZ = (start.z - coords.latitude) * 111320; // Convert latitude to meters
+            const startZ = -(start.z - coords.latitude) * 111320; // Invert z-axis
             const endX = (end.x - coords.longitude) * 111320;
-            const endZ = (end.z - coords.latitude) * 111320;
+            const endZ = -(end.z - coords.latitude) * 111320; // Invert z-axis
 
             const dx = endX - startX;
             const dz = endZ - startZ;
@@ -128,6 +128,47 @@ export function renderRoads(roads, coords, scene) {
             roadMesh.rotation.y = -angle;
 
             scene.add(roadMesh);
+        }
+    });
+}
+
+export function renderBuildings(buildings, coords, scene) {
+    buildings.forEach(building => {
+        const vertices = building.vertices;
+        const tags = building.tags;
+
+        const color = 0x808080;
+        const height = parseFloat(tags['building:levels'] || 1) * 3; // Default height is 3 meters per level
+
+        for (let i = 0; i < vertices.length - 1; i++) {
+            const start = vertices[i];
+            const end = vertices[i + 1];
+
+            const startX = (start.x - coords.longitude) * 111320; // Convert longitude to meters
+            const startZ = -(start.z - coords.latitude) * 111320; // Invert z-axis
+            const endX = (end.x - coords.longitude) * 111320;
+            const endZ = -(end.z - coords.latitude) * 111320; // Invert z-axis
+
+            const dx = endX - startX;
+            const dz = endZ - startZ;
+            const length = Math.sqrt(dx * dx + dz * dz);
+
+            const buildingGeometry = new THREE.BoxGeometry(length, height, 3); // Default width is 3 meters
+            const buildingMaterial = new THREE.MeshBasicMaterial({ color: color });
+            const buildingMesh = new THREE.Mesh(buildingGeometry, buildingMaterial);
+
+            // Position the building segment
+            buildingMesh.position.set(
+                (startX + endX) / 2, // Midpoint of the segment
+                height / 2,          // Center the building vertically
+                (startZ + endZ) / 2  // Midpoint of the segment
+            );
+
+            // Rotate the building segment to align with the path
+            const angle = Math.atan2(dz, dx);
+            buildingMesh.rotation.y = -angle;
+
+            scene.add(buildingMesh);
         }
     });
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getUserPosition } from './geolocation.js';
-import { fetchMapData, renderRoads } from './mapApi.js';
+import { fetchMapData, renderRoads, renderBuildings } from './mapApi.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -120,6 +120,9 @@ getUserPosition()
             // Render roads
             renderRoads(mapData.roads, coords, scene);
 
+            // Render buildings
+            renderBuildings(mapData.buildings, coords, scene);
+
             // Refresh the view by rendering the scene
             renderer.render(scene, camera);
         } catch (error) {
@@ -129,6 +132,44 @@ getUserPosition()
     .catch((error) => {
         console.error('Error getting user position:', error);
     });
+
+// Admin panel controls
+const fovInput = document.getElementById('fov');
+const posXInput = document.getElementById('posX');
+const posYInput = document.getElementById('posY');
+const posZInput = document.getElementById('posZ');
+const rotXInput = document.getElementById('rotX');
+const rotYInput = document.getElementById('rotY');
+const rotZInput = document.getElementById('rotZ');
+
+fovInput.addEventListener('input', () => {
+    camera.fov = parseFloat(fovInput.value);
+    camera.updateProjectionMatrix();
+});
+
+posXInput.addEventListener('input', () => {
+    camera.position.x = parseFloat(posXInput.value);
+});
+
+posYInput.addEventListener('input', () => {
+    camera.position.y = parseFloat(posYInput.value);
+});
+
+posZInput.addEventListener('input', () => {
+    camera.position.z = parseFloat(posZInput.value);
+});
+
+rotXInput.addEventListener('input', () => {
+    camera.rotation.x = parseFloat(rotXInput.value) * (Math.PI / 180);
+});
+
+rotYInput.addEventListener('input', () => {
+    camera.rotation.y = parseFloat(rotYInput.value) * (Math.PI / 180);
+});
+
+rotZInput.addEventListener('input', () => {
+    camera.rotation.z = parseFloat(rotZInput.value) * (Math.PI / 180);
+}); // Add the missing closing parenthesis here
 
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);

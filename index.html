@@ -5,9 +5,49 @@
     <title>My first three.js app</title>
     <style>
       body { margin: 0; }
+      #admin-panel {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+        font-family: Arial, sans-serif;
+        z-index: 1000;
+      }
+      #admin-panel label {
+        display: block;
+        margin-bottom: 5px;
+      }
+      #admin-panel input {
+        width: 100%;
+        margin-bottom: 10px;
+      }
     </style>
   </head>
   <body>
+    <div id="admin-panel">
+      <label for="fov">FOV</label>
+      <input type="range" id="fov" min="30" max="120" value="60">
+      
+      <label for="posX">Position X</label>
+      <input type="range" id="posX" min="-200" max="200" value="0">
+      
+      <label for="posY">Position Y</label>
+      <input type="range" id="posY" min="0" max="200" value="40">
+      
+      <label for="posZ">Position Z</label>
+      <input type="range" id="posZ" min="-200" max="200" value="125">
+      
+      <label for="rotX">Rotation X</label>
+      <input type="range" id="rotX" min="-180" max="180" value="-75">
+      
+      <label for="rotY">Rotation Y</label>
+      <input type="range" id="rotY" min="-180" max="180" value="0">
+      
+      <label for="rotZ">Rotation Z</label>
+      <input type="range" id="rotZ" min="-180" max="180" value="0">
+    </div>
     <script type="module" src="/main.js"></script>
   </body>
 </html>
