@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { getUserPosition } from './geolocation.js';
 import { fetchMapData, renderRoads, renderBuildings } from './mapApi.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -33,6 +34,16 @@ const largeCubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // R
 const largeCube = new THREE.Mesh(largeCubeGeometry, largeCubeMaterial);
 largeCube.position.set(0, 0, 0); // Set large cube to the center of the scene
 scene.add(largeCube);
+
+// Add lighting to the scene
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Soft white light
+
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // Strong directional light
+directionalLight.position.set(50, 100, 50); // Position the light
+
+let treeModel = null; // Reference to the tree model
+let cachedTreeModel = null; // Cache for the tree model
 
 function clearScene() {
     while (scene.children.length > 1) { // Keep the large cube in the scene
@@ -110,6 +121,7 @@ getUserPosition()
     .then(async (coords) => {
         console.log(`User position: Latitude ${coords.latitude}, Longitude ${coords.longitude}`);
         try {
+            
             const width = 500; // Smaller width for visualization
             const height = 500; // Smaller height for visualization
             const mapData = await fetchMapData(coords.latitude, coords.longitude, width, height);
@@ -123,8 +135,19 @@ getUserPosition()
             // Render buildings
             renderBuildings(mapData.buildings, coords, scene);
 
+            // Re-add the cached tree model
+            if (cachedTreeModel) {
+                const treeClone = cachedTreeModel.clone(); // Clone the cached tree model
+                treeClone.position.set(50, 0, 0); // Set its position
+                scene.add(treeClone);
+            }
+
+            scene.add(ambientLight);
+            scene.add(directionalLight);
+
             // Refresh the view by rendering the scene
             renderer.render(scene, camera);
+
         } catch (error) {
             console.error('Error fetching map data:', error);
         }
@@ -132,6 +155,32 @@ getUserPosition()
     .catch((error) => {
         console.error('Error getting user position:', error);
     });
+
+function loadModel(path, position, scene, callback) {
+    const loader = new GLTFLoader();
+    loader.load(
+        path,
+        (gltf) => {
+            const model = gltf.scene;
+            model.position.set(position.x, position.y, position.z);
+            if (path === '/models/Low Poly Tree.glb') {
+                cachedTreeModel = model; // Cache the tree model
+            }
+            scene.add(model);
+            console.log(`Model loaded from ${path}`);
+            if (callback) callback(model);
+        },
+        undefined,
+        (error) => {
+            console.error(`Error loading model from ${path}:`, error);
+        }
+    );
+}
+
+// Load the "Low Poly Tree.glb" model once and store its reference
+loadModel('/models/Low Poly Tree.glb', { x: 50, y: 0, z: 0 }, scene, (model) => {
+    treeModel = model;
+});
 
 // Admin panel controls
 const fovInput = document.getElementById('fov');
