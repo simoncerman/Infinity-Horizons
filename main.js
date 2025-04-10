@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getUserPosition } from './geolocation.js';
-import { fetchMapData, renderRoads, renderBuildings } from './mapApi.js';
+import { fetchMapData, renderRoads, renderBuildings, renderNaturals } from './mapApi.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
@@ -59,6 +59,9 @@ function clearScene() {
     }
 }
 
+let drift = { x: 0, z: 0 }; // Drift velocity
+const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
+
 function handleKeyDown(event) {
     if (event.key === 'w') controls.forward = true;
     if (event.key === 's') controls.backward = true;
@@ -77,6 +80,8 @@ function handleMouseDown(event) {
     controls.dragging = true;
     controls.dragStart.x = event.clientX;
     controls.dragStart.y = event.clientY;
+    drift.x = 0; // Reset drift when dragging starts
+    drift.z = 0;
 }
 
 function handleMouseMove(event) {
@@ -84,11 +89,17 @@ function handleMouseMove(event) {
         // It will update the position of the camera, the rotation will be 45 in x and 45 in y
         const deltaX = event.clientX - controls.dragStart.x;
         const deltaY = event.clientY - controls.dragStart.y;
-        camera.position.x -= deltaX * 0.01; // Adjust the multiplier for sensitivity
-        camera.position.z -= deltaY * 0.01; // Adjust the multiplier for sensitivity
+        camera.position.x -= deltaX * 0.07; // Adjust the multiplier for sensitivity
+        camera.position.z -= deltaY * 0.07; // Adjust the multiplier for sensitivity
         //camera.rotation.x = controls.rotation.x;
         camera.rotation.y = controls.rotation.y;
         camera.rotation.z = controls.rotation.z;
+
+        drift.x = deltaX * 0.07; // Update drift velocity
+        drift.z = deltaY * 0.07;
+
+        controls.dragStart.x = event.clientX; // Update drag start position
+        controls.dragStart.y = event.clientY;
     }
 }
 
@@ -112,7 +123,7 @@ function handleScroll(event) {
 window.addEventListener('wheel', handleScroll);
 
 function updateCameraPosition() {
-    const speed = 0.5;
+    const speed = 80; // Increased speed (4x faster)
     if (controls.forward) {
         camera.position.z -= Math.cos(controls.rotation.y) * speed;
         camera.position.x -= Math.sin(controls.rotation.y) * speed;
@@ -134,8 +145,23 @@ function updateCameraPosition() {
     camera.rotation.z = controls.rotation.z;
 }
 
+function applyDrift() {
+    if (!controls.dragging) {
+        camera.position.x -= drift.x;
+        camera.position.z -= drift.z;
+
+        drift.x *= driftDecay; // Apply decay to drift
+        drift.z *= driftDecay;
+
+        // Stop drift when it's very small
+        if (Math.abs(drift.x) < 0.001) drift.x = 0;
+        if (Math.abs(drift.z) < 0.001) drift.z = 0;
+    }
+}
+
 function animate() {
     updateCameraPosition(); // Update the camera position based on controls
+    applyDrift(); // Apply drift effect
     renderer.render(scene, camera); // Render the scene
 }
 renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
@@ -151,6 +177,8 @@ getUserPosition()
 
             // Clear the scene before rendering new data
             clearScene();
+            scene.add(plane);   
+
 
             // Render roads
             renderRoads(mapData.roads, coords, scene);
@@ -158,16 +186,13 @@ getUserPosition()
             // Render buildings
             renderBuildings(mapData.buildings, coords, scene);
 
-            // Re-add the cached tree model
+            // Render naturals (trees)
             if (cachedTreeModel) {
-                const treeClone = cachedTreeModel.clone(); // Clone the cached tree model
-                treeClone.position.set(50, 0, 0); // Set its position
-                scene.add(treeClone);
+                renderNaturals(mapData.naturals, coords, scene, cachedTreeModel);
             }
 
             scene.add(ambientLight);
             scene.add(directionalLight);
-            scene.add(plane);   
 
             // Refresh the view by rendering the scene
             renderer.render(scene, camera);

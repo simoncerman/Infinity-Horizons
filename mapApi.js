@@ -4,7 +4,7 @@ export async function fetchMapData(latitude, longitude, width, height) {
     const overpassApiUrl = 'https://overpass-api.de/api/interpreter';
     const bbox = calculateBoundingBox(latitude, longitude, width, height);
     const query = `
-        [out:json][timeout:25];
+        [out:json];
         (
             way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             way["highway"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
@@ -116,7 +116,7 @@ export function renderRoads(roads, coords, scene) {
         } else if (road.tags.highway === 'footway') {
             width = 1.5;
             color = 0x8B4513;
-            drawLines = true; // Draw white lines for footway
+            drawLines = false; // Draw white lines for footway
         } else if (road.tags.highway === 'residential') {
             width = 6;
             color = 0x616267;
@@ -222,6 +222,54 @@ export function renderBuildings(buildings, coords, scene) {
             buildingMesh.rotation.y = -angle;
 
             scene.add(buildingMesh);
+        }
+    });
+}
+
+// Utility function to check if a point is inside a polygon
+function isPointInPolygon(point, polygon) {
+    let inside = false;
+    const x = point.x, z = point.y;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x, zi = polygon[i].y;
+        const xj = polygon[j].x, zj = polygon[j].y;
+
+        const intersect = ((zi > z) !== (zj > z)) &&
+            (x < (xj - xi) * (z - zi) / (zj - zi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+export function renderNaturals(naturals, coords, scene, treeModel) {
+    naturals.forEach(natural => {
+        if (!natural.path || !treeModel) return;
+
+        // Convert path vertices to THREE.Vector3
+        const points = natural.path.map(vertex => new THREE.Vector3(
+            (vertex.x - coords.longitude) * 111320, // Convert longitude to meters
+            0,                                     // Place trees at ground level
+            -(vertex.z - coords.latitude) * 111320 // Convert latitude to meters and invert z-axis
+        ));
+
+        // Convert points to 2D for polygon checks
+        const polygon = points.map(point => new THREE.Vector2(point.x, point.z));
+
+        // Generate random positions within the bounding box
+        const boundingBox = new THREE.Box2();
+        polygon.forEach(point => boundingBox.expandByPoint(point));
+
+        const treeCount = Math.floor(Math.random() * 20) + 10; // Random number of trees (10-30)
+        for (let i = 0; i < treeCount; i++) {
+            const randomX = boundingBox.min.x + Math.random() * (boundingBox.max.x - boundingBox.min.x);
+            const randomZ = boundingBox.min.y + Math.random() * (boundingBox.max.y - boundingBox.min.y);
+
+            // Check if the random point is inside the polygon
+            if (isPointInPolygon(new THREE.Vector2(randomX, randomZ), polygon)) {
+                const treeClone = treeModel.clone();
+                treeClone.position.set(randomX, 0, randomZ); // Place tree at random position
+                scene.add(treeClone);
+            }
         }
     });
 }
