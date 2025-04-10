@@ -81,22 +81,41 @@ function processMapData(data) {
 }
 
 export function renderRoads(roads, coords, scene) {
+    // Assign priority to road types and their heights
+    const roadPriority = {
+        highway: { priority: 3, height: 0.03 }, // Highest priority, highest height
+        residential: { priority: 2, height: 0.02 },
+        tertiary: { priority: 2, height: 0.02 }, // Same as residential
+        footway: { priority: 1, height: 0.01 }, // Lowest priority, lowest height
+    };
+
+    // Sort roads by priority
+    roads.sort((a, b) => {
+        const priorityA = roadPriority[a.tags.highway]?.priority || 0;
+        const priorityB = roadPriority[b.tags.highway]?.priority || 0;
+        return priorityA - priorityB;
+    });
+
     roads.forEach(road => {
         let path = road.path;
 
         let color = 0xD3D3D3; // Default color for roads
-        let height = 0.2; // Default height for roads
         let width = 3.5; // Default width for roads
+        let drawLines = false; // Default: no lines
+        let height = roadPriority[road.tags.highway]?.height || 0.01; // Default height
 
         if (road.tags.highway === 'tertiary') {
-            width = road.tags.lanes ? road.tags.lanes * 3.5 : 3.5;
-            color = 0x000000;
+            width = 7; // Wider for tertiary roads
+            drawLines = true; // Draw white lines for footway
+            color = 0x616267;
         } else if (road.tags.highway === 'footway') {
-            width = 1;
+            width = 1.5;
             color = 0x8B4513;
+            drawLines = true; // Draw white lines for footway
         } else if (road.tags.highway === 'residential') {
-            width = road.tags.lanes ? road.tags.lanes * 3.5 : 3.5;
-            color = 0x000000;
+            width = 6
+            color = 0x616267;
+            drawLines = true; // Draw white lines for residential
         }
 
         for (let i = 0; i < road.path.length - 1; i++) {
@@ -112,22 +131,45 @@ export function renderRoads(roads, coords, scene) {
             const dz = endZ - startZ;
             const length = Math.sqrt(dx * dx + dz * dz);
 
-            const roadGeometry = new THREE.BoxGeometry(length, height, width);
-            const roadMaterial = new THREE.MeshBasicMaterial({ color: color });
+            // Create the road geometry using PlaneGeometry
+            const roadGeometry = new THREE.PlaneGeometry(length, width);
+            const roadMaterial = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
             const roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
 
             // Position the road segment
             roadMesh.position.set(
                 (startX + endX) / 2, // Midpoint of the segment
-                height / 2,          // Center the road vertically
+                height,              // Height based on priority
                 (startZ + endZ) / 2  // Midpoint of the segment
             );
 
             // Rotate the road segment to align with the path
             const angle = Math.atan2(dz, dx);
-            roadMesh.rotation.y = -angle;
+            roadMesh.rotation.x = -Math.PI / 2; // Rotate to lie flat
+            roadMesh.rotation.z = -angle;
 
             scene.add(roadMesh);
+
+            // Draw white lines in the middle if required
+            if (drawLines) {
+                const lineWidth = 0.1; // Thin line width
+                const lineGeometry = new THREE.PlaneGeometry(length, lineWidth);
+                const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+                const lineMesh = new THREE.Mesh(lineGeometry, lineMaterial);
+
+                // Position the line segment
+                lineMesh.position.set(
+                    (startX + endX) / 2, // Midpoint of the segment
+                    height + 0.001,      // Slightly above the road to avoid z-fighting
+                    (startZ + endZ) / 2  // Midpoint of the segment
+                );
+
+                // Rotate the line segment to align with the path
+                lineMesh.rotation.x = -Math.PI / 2; // Rotate to lie flat
+                lineMesh.rotation.z = -angle;
+
+                scene.add(lineMesh);
+            }
         }
     });
 }
