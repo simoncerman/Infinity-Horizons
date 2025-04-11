@@ -45,10 +45,32 @@ scene.add(plane);
 
 // Add lighting to the scene
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Soft white light
-
+scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // Strong directional light
 directionalLight.position.set(50, 100, 50); // Position the light
+directionalLight.castShadow = true; // Enable shadows
+
+// Configure shadow properties
+directionalLight.shadow.mapSize.width = 2048; // Shadow map resolution
+directionalLight.shadow.mapSize.height = 2048;
+directionalLight.shadow.camera.near = 0.1;
+directionalLight.shadow.camera.far = 500;
+directionalLight.shadow.camera.left = -200;
+directionalLight.shadow.camera.right = 200;
+directionalLight.shadow.camera.top = 200;
+directionalLight.shadow.camera.bottom = -200;
+
+scene.add(directionalLight);
+
+// Enable shadows in the renderer
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
+
+// Update objects to cast and receive shadows
+plane.receiveShadow = true; // Ground receives shadows
+largeCube.castShadow = true; // Example object casts shadows
+largeCube.receiveShadow = true; // Example object receives shadows
 
 let treeModel = null; // Reference to the tree model
 let cachedTreeModel = null; // Cache for the tree model
@@ -123,7 +145,7 @@ function handleScroll(event) {
 window.addEventListener('wheel', handleScroll);
 
 function updateCameraPosition() {
-    const speed = 80; // Increased speed (4x faster)
+    const speed = 4; // Increased speed (4x faster)
     if (controls.forward) {
         camera.position.z -= Math.cos(controls.rotation.y) * speed;
         camera.position.x -= Math.sin(controls.rotation.y) * speed;
@@ -212,6 +234,12 @@ function loadModel(path, position, scene, callback) {
         (gltf) => {
             const model = gltf.scene;
             model.position.set(position.x, position.y, position.z);
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true; // Enable shadows for model meshes
+                    child.receiveShadow = true; // Enable receiving shadows
+                }
+            });
             if (path === '/models/Low Poly Tree.glb') {
                 cachedTreeModel = model; // Cache the tree model
             }

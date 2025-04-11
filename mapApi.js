@@ -74,6 +74,8 @@ function processMapData(data) {
                 naturals.push({ path: vertices, tags: element.tags });
             } else if (element.tags.waterway) {
                 waterways.push({ path: vertices });
+            } else if (element.tags.landuse) {
+                naturals.push({ path: vertices, tags: element.tags });
             }
         }
     });
@@ -190,8 +192,14 @@ export function renderBuildings(buildings, coords, scene) {
         const vertices = building.vertices;
         const tags = building.tags;
 
-        const color = 0x808080;
-        const height = parseFloat(tags['building:levels'] || 1) * 3; // Default height is 3 meters per level
+        let color = 0x808080;
+        let height = parseFloat(tags['building:levels'] || 1) * 3; // Default height is 3 meters per level
+
+        // if tag building = house
+        if (tags.building === 'house') {
+            color = 0x808080; // Brown color for houses
+            height = 5; // Default height for houses
+        }
 
         for (let i = 0; i < vertices.length - 1; i++) {
             const start = vertices[i];
@@ -206,7 +214,7 @@ export function renderBuildings(buildings, coords, scene) {
             const dz = endZ - startZ;
             const length = Math.sqrt(dx * dx + dz * dz);
 
-            const buildingGeometry = new THREE.BoxGeometry(length, height, 3); // Default width is 3 meters
+            const buildingGeometry = new THREE.BoxGeometry(length + 1, height, 1); // Default width is 3 meters
             const buildingMaterial = new THREE.MeshBasicMaterial({ color: color });
             const buildingMesh = new THREE.Mesh(buildingGeometry, buildingMaterial);
 
@@ -252,14 +260,30 @@ export function renderNaturals(naturals, coords, scene, treeModel) {
             -(vertex.z - coords.latitude) * 111320 // Convert latitude to meters and invert z-axis
         ));
 
+        // Draw a white line along the path
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffff00 });
+        const line = new THREE.Line(lineGeometry, lineMaterial);
+        scene.add(line);
+
         // Convert points to 2D for polygon checks
         const polygon = points.map(point => new THREE.Vector2(point.x, point.z));
+
+        // Calculate the area of the polygon
+        let area = 0;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            area += (polygon[j].x + polygon[i].x) * (polygon[j].y - polygon[i].y);
+        }
+        area = Math.abs(area / 2); // Final area in square meters
 
         // Generate random positions within the bounding box
         const boundingBox = new THREE.Box2();
         polygon.forEach(point => boundingBox.expandByPoint(point));
 
-        const treeCount = Math.floor(Math.random() * 20) + 10; // Random number of trees (10-30)
+        // Set the number of trees based on the area size
+        const treeDensity = 0.01; // Trees per square meter
+        const treeCount = Math.floor(area * treeDensity);
+
         for (let i = 0; i < treeCount; i++) {
             const randomX = boundingBox.min.x + Math.random() * (boundingBox.max.x - boundingBox.min.x);
             const randomZ = boundingBox.min.y + Math.random() * (boundingBox.max.y - boundingBox.min.y);
