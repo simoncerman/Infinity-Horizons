@@ -88,102 +88,48 @@ function processMapData(data) {
 }
 
 export function renderRoads(roads, coords, scene) {
-    // Assign priority to road types and their heights
-    const roadPriority = {
-        highway: { priority: 3, height: 0.03 }, // Highest priority, highest height
-        residential: { priority: 2, height: 0.02 },
-        tertiary: { priority: 2, height: 0.02 }, // Same as residential
-        footway: { priority: 1, height: 0.01 }, // Lowest priority, lowest height
+    // Define road properties based on type
+    const roadProperties = {
+        highway: { color: 0xD3D3D3, width: 3.5, height: 0.04 },
+        tertiary: { color: 0x616267, width: 7, height: 0.03 },
+        residential: { color: 0x616267, width: 6, height: 0.02 },
+        footway: { color: 0x8B4513, width: 1.5, height: 0.01 },
+        default: { color: 0x808080, width: 3, height: 0.01 } // Default properties for unknown types
     };
 
-    // Sort roads by priority
-    roads.sort((a, b) => {
-        const priorityA = roadPriority[a.tags.highway]?.priority || 0;
-        const priorityB = roadPriority[b.tags.highway]?.priority || 0;
-        return priorityA - priorityB;
-    });
-
     roads.forEach(road => {
-        let path = road.path;
-
-        let color = 0xD3D3D3; // Default color for roads
-        let width = 3.5; // Default width for roads
-        let drawLines = false; // Default: no lines
-        let height = roadPriority[road.tags.highway]?.height || 0.01; // Default height
-
-        if (road.tags.highway === 'tertiary') {
-            width = 7; // Wider for tertiary roads
-            drawLines = true; // Draw white lines for tertiary
-            color = 0x616267;
-        } else if (road.tags.highway === 'footway') {
-            width = 1.5;
-            color = 0x8B4513;
-            drawLines = false; // Draw white lines for footway
-        } else if (road.tags.highway === 'residential') {
-            width = 6;
-            color = 0x616267;
-            drawLines = true; // Draw white lines for residential
-        }
-
-        // Convert path vertices to THREE.Vector3
-        const points = path.map(vertex => new THREE.Vector3(
+        const properties = roadProperties[road.tags.highway] || roadProperties.default;
+        const points = road.path.map(vertex => new THREE.Vector3(
             (vertex.x - coords.longitude) * 111320, // Convert longitude to meters
-            height,                                 // Set height based on priority
+            0,                                     // Place road at ground level
             -(vertex.z - coords.latitude) * 111320 // Convert latitude to meters and invert z-axis
         ));
 
         // Create a smooth curve using CatmullRomCurve3
         const curve = new THREE.CatmullRomCurve3(points);
-        const curvePoints = curve.getPoints(50); // Increase the number of points for smoother curves
 
-        for (let i = 0; i < curvePoints.length - 1; i++) {
-            const start = curvePoints[i];
-            const end = curvePoints[i + 1];
+        // Define the road cross-section shape
+        const roadShape = new THREE.Shape();
+        const halfWidth = properties.width / 2;
+        roadShape.moveTo(0, -halfWidth);
+        roadShape.lineTo(0, halfWidth);
+        roadShape.closePath();
 
-            const dx = end.x - start.x;
-            const dz = end.z - start.z;
-            const length = Math.sqrt(dx * dx + dz * dz);
+        // Create ExtrudeGeometry to extrude the road shape along the curve
+        const extrudeSettings = {
+            steps: 100,
+            bevelEnabled: true,
+            extrudePath: curve,
+            bevelThickness: 1,
+            bevelSize: 1,
+        };
+        const roadGeometry = new THREE.ExtrudeGeometry(roadShape, extrudeSettings);
+        const roadMaterial = new THREE.MeshBasicMaterial({ color: properties.color });
+        const roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
 
-            // Create the road geometry using PlaneGeometry
-            const roadGeometry = new THREE.PlaneGeometry(length, width);
-            const roadMaterial = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
-            const roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
+        roadMesh.position.set(0, properties.height, 0); // Adjust height for the road
 
-            // Position the road segment
-            roadMesh.position.set(
-                (start.x + end.x) / 2, // Midpoint of the segment
-                height,                // Height based on priority
-                (start.z + end.z) / 2  // Midpoint of the segment
-            );
-
-            // Rotate the road segment to align with the path
-            const angle = Math.atan2(dz, dx);
-            roadMesh.rotation.x = -Math.PI / 2; // Rotate to lie flat
-            roadMesh.rotation.z = -angle;
-
-            scene.add(roadMesh);
-
-            // Draw white lines in the middle if required
-            if (drawLines) {
-                const lineWidth = 0.1; // Thin line width
-                const lineGeometry = new THREE.PlaneGeometry(length, lineWidth);
-                const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-                const lineMesh = new THREE.Mesh(lineGeometry, lineMaterial);
-
-                // Position the line segment
-                lineMesh.position.set(
-                    (start.x + end.x) / 2, // Midpoint of the segment
-                    height + 0.001,        // Slightly above the road to avoid z-fighting
-                    (start.z + end.z) / 2  // Midpoint of the segment
-                );
-
-                // Rotate the line segment to align with the path
-                lineMesh.rotation.x = -Math.PI / 2; // Rotate to lie flat
-                lineMesh.rotation.z = -angle;
-
-                scene.add(lineMesh);
-            }
-        }
+        scene.add(roadMesh);
     });
 }
 

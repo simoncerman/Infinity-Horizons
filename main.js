@@ -188,19 +188,29 @@ function animate() {
 }
 renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
 
+// Load saved geolocation data from localStorage
+const savedLatitude = localStorage.getItem('latitude');
+const savedLongitude = localStorage.getItem('longitude');
+if (savedLatitude && savedLongitude) {
+    console.log(`Loaded saved geolocation: Latitude ${savedLatitude}, Longitude ${savedLongitude}`);
+}
+
 getUserPosition()
     .then(async (coords) => {
         console.log(`User position: Latitude ${coords.latitude}, Longitude ${coords.longitude}`);
+
+        // Save geolocation data to localStorage
+        localStorage.setItem('latitude', coords.latitude);
+        localStorage.setItem('longitude', coords.longitude);
+
         try {
-            
             const width = 500; // Smaller width for visualization
             const height = 500; // Smaller height for visualization
             const mapData = await fetchMapData(coords.latitude, coords.longitude, width, height);
 
             // Clear the scene before rendering new data
             clearScene();
-            scene.add(plane);   
-
+            scene.add(plane);
 
             // Render roads
             renderRoads(mapData.roads, coords, scene);
@@ -223,8 +233,57 @@ getUserPosition()
             console.error('Error fetching map data:', error);
         }
     })
-    .catch((error) => {
+    .catch(async (error) => {
         console.error('Error getting user position:', error);
+
+        // Fallback to saved address if geolocation fails
+        const savedAddress = localStorage.getItem('address');
+        if (savedAddress) {
+            console.log(`Using saved address: ${savedAddress}`);
+            try {
+                const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(savedAddress)}&format=json`);
+                const geocodeData = await geocodeResponse.json();
+
+                if (!geocodeData || geocodeData.length === 0) {
+                    console.error('Saved address not found. Please update the address.');
+                    return;
+                }
+
+                const latitude = parseFloat(geocodeData[0].lat);
+                const longitude = parseFloat(geocodeData[0].lon);
+
+                console.log(`Geocoded Address: Latitude ${latitude}, Longitude ${longitude}`);
+
+                const width = 500; // Smaller width for visualization
+                const height = 500; // Smaller height for visualization
+                const mapData = await fetchMapData(latitude, longitude, width, height);
+
+                // Clear the scene before rendering new data
+                clearScene();
+                scene.add(plane);
+
+                // Render roads
+                renderRoads(mapData.roads, { latitude, longitude }, scene);
+
+                // Render buildings
+                renderBuildings(mapData.buildings, { latitude, longitude }, scene);
+
+                // Render naturals (trees)
+                if (cachedTreeModel) {
+                    renderNaturals(mapData.naturals, { latitude, longitude }, scene, cachedTreeModel);
+                }
+
+                scene.add(ambientLight);
+                scene.add(directionalLight);
+
+                // Refresh the view by rendering the scene
+                renderer.render(scene, camera);
+            } catch (geocodeError) {
+                console.error('Error using saved address:', geocodeError);
+            }
+        } else {
+            console.error('No saved address available. Please provide an address.');
+        }
     });
 
 function loadModel(path, position, scene, callback) {
@@ -296,6 +355,72 @@ rotYInput.addEventListener('input', () => {
 rotZInput.addEventListener('input', () => {
     camera.rotation.z = parseFloat(rotZInput.value) * (Math.PI / 180);
 }); // Add the missing closing parenthesis here
+
+// User info panel elements
+const addressInput = document.getElementById('address');
+const fetchMapButton = document.getElementById('fetch-map');
+
+// Load saved address from localStorage
+const savedAddress = localStorage.getItem('address');
+if (savedAddress) {
+    addressInput.value = savedAddress;
+}
+
+fetchMapButton.addEventListener('click', async () => {
+    const address = addressInput.value.trim();
+
+    if (!address) {
+        alert('Please enter a valid address.');
+        return;
+    }
+
+    // Save the address to localStorage
+    localStorage.setItem('address', address);
+
+    console.log(`Fetching map data for Address: ${address}`);
+    try {
+        // Convert address to latitude and longitude using a geocoding API
+        const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`);
+        const geocodeData = await geocodeResponse.json();
+
+        if (!geocodeData || geocodeData.length === 0) {
+            alert('Address not found. Please try a different address.');
+            return;
+        }
+
+        const latitude = parseFloat(geocodeData[0].lat);
+        const longitude = parseFloat(geocodeData[0].lon);
+
+        console.log(`Geocoded Address: Latitude ${latitude}, Longitude ${longitude}`);
+
+        const width = 500; // Smaller width for visualization
+        const height = 500; // Smaller height for visualization
+        const mapData = await fetchMapData(latitude, longitude, width, height);
+
+        // Clear the scene before rendering new data
+        clearScene();
+        scene.add(plane);
+
+        // Render roads
+        renderRoads(mapData.roads, { latitude, longitude }, scene);
+
+        // Render buildings
+        renderBuildings(mapData.buildings, { latitude, longitude }, scene);
+
+        // Render naturals (trees)
+        if (cachedTreeModel) {
+            renderNaturals(mapData.naturals, { latitude, longitude }, scene, cachedTreeModel);
+        }
+
+        scene.add(ambientLight);
+        scene.add(directionalLight);
+
+        // Refresh the view by rendering the scene
+        renderer.render(scene, camera);
+    } catch (error) {
+        console.error('Error fetching map data:', error);
+    }
+});
 
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);
