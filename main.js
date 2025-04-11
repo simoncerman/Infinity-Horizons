@@ -39,7 +39,7 @@ scene.add(largeCube);
 
 // Add a plane under the whole map
 const planeGeometry = new THREE.PlaneGeometry(1000, 1000); // Large plane
-const planeMaterial = new THREE.MeshBasicMaterial({ color: 0x8cc543, side: THREE.DoubleSide });
+const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x8ec844 }); // Light green color
 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 plane.rotation.x = -Math.PI / 2; // Rotate to lie flat
 plane.position.y = -0.2; // Position at ground level
@@ -47,11 +47,10 @@ plane.receiveShadow = true; // Enable receiving shadows
 scene.add(plane);
 
 // Add lighting to the scene
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Soft white light
-ambientLight.castShadow = true; // Enable shadows for ambient light
-//scene.add(ambientLight);
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Increase ambient light intensity
+scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // Strong directional light
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9); // Strong directional light
 directionalLight.position.set(50, 100, 50); // Position the light
 directionalLight.castShadow = true; // Enable shadows
 
@@ -70,17 +69,6 @@ scene.add(directionalLight);
 // Ensure shadows are enabled in the renderer
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
-
-// Configure directional light for shadows
-directionalLight.castShadow = true;
-directionalLight.shadow.mapSize.width = 2048; // Shadow map resolution
-directionalLight.shadow.mapSize.height = 2048;
-directionalLight.shadow.camera.near = 0.1;
-directionalLight.shadow.camera.far = 500;
-directionalLight.shadow.camera.left = -200;
-directionalLight.shadow.camera.right = 200;
-directionalLight.shadow.camera.top = 200;
-directionalLight.shadow.camera.bottom = -200;
 
 // Ensure objects cast and receive shadows
 plane.receiveShadow = true; // Ground receives shadows
@@ -325,6 +313,9 @@ const posZInput = document.getElementById('posZ');
 const rotXInput = document.getElementById('rotX');
 const rotYInput = document.getElementById('rotY');
 const rotZInput = document.getElementById('rotZ');
+const lightXInput = document.getElementById('lightX');
+const lightYInput = document.getElementById('lightY');
+const lightZInput = document.getElementById('lightZ');
 
 fovInput.addEventListener('input', () => {
     camera.fov = parseFloat(fovInput.value);
@@ -353,7 +344,19 @@ rotYInput.addEventListener('input', () => {
 
 rotZInput.addEventListener('input', () => {
     camera.rotation.z = parseFloat(rotZInput.value) * (Math.PI / 180);
-}); // Add the missing closing parenthesis here
+});
+
+lightXInput.addEventListener('input', () => {
+    directionalLight.position.x = parseFloat(lightXInput.value);
+});
+
+lightYInput.addEventListener('input', () => {
+    directionalLight.position.y = parseFloat(lightYInput.value);
+});
+
+lightZInput.addEventListener('input', () => {
+    directionalLight.position.z = parseFloat(lightZInput.value);
+});
 
 // User info panel elements
 const addressInput = document.getElementById('address');

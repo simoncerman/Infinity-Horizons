@@ -5,12 +5,12 @@ export function renderBuildings(buildings, coords, scene) {
         const vertices = building.vertices;
         const tags = building.tags;
 
-        let color = 0x808080;
+        let color = 0xd7d1c5; // Updated default building color
         let height = parseFloat(tags['building:levels'] || 1) * 3; // Default height is 3 meters per level
 
         // if tag building = house
         if (tags.building === 'house') {
-            color = 0x808080; // Brown color for houses
+            color = 0xd7d1c5; // Updated color for houses
             height = 5; // Default height for houses
         }
 
@@ -30,6 +30,8 @@ export function renderBuildings(buildings, coords, scene) {
             const buildingGeometry = new THREE.BoxGeometry(length + 1, height, 1); // Default width is 3 meters
             const buildingMaterial = new THREE.MeshBasicMaterial({ color: color });
             const buildingMesh = new THREE.Mesh(buildingGeometry, buildingMaterial);
+            buildingMesh.castShadow = true; // Enable shadow casting for buildings
+            buildingMesh.receiveShadow = true; // Enable shadow receiving for buildings
 
             // Position the building segment
             buildingMesh.position.set(
