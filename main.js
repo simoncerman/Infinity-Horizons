@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getUserPosition } from './geolocation.js';
-import { fetchMapData, renderRoads, renderBuildings, renderNaturals } from './mapApi.js';
+import { fetchMapData,renderAll } from './mapApi.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
@@ -9,6 +9,8 @@ const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0xffffff, 1); // Set background color to white
+renderer.shadowMap.enabled = true; // Enable shadows in the renderer
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 document.body.appendChild(renderer.domElement);
 
 camera.position.z = 125;
@@ -41,11 +43,13 @@ const planeMaterial = new THREE.MeshBasicMaterial({ color: 0x8cc543, side: THREE
 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 plane.rotation.x = -Math.PI / 2; // Rotate to lie flat
 plane.position.y = -0.2; // Position at ground level
+plane.receiveShadow = true; // Enable receiving shadows
 scene.add(plane);
 
 // Add lighting to the scene
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Soft white light
-scene.add(ambientLight);
+ambientLight.castShadow = true; // Enable shadows for ambient light
+//scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // Strong directional light
 directionalLight.position.set(50, 100, 50); // Position the light
@@ -63,11 +67,22 @@ directionalLight.shadow.camera.bottom = -200;
 
 scene.add(directionalLight);
 
-// Enable shadows in the renderer
+// Ensure shadows are enabled in the renderer
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 
-// Update objects to cast and receive shadows
+// Configure directional light for shadows
+directionalLight.castShadow = true;
+directionalLight.shadow.mapSize.width = 2048; // Shadow map resolution
+directionalLight.shadow.mapSize.height = 2048;
+directionalLight.shadow.camera.near = 0.1;
+directionalLight.shadow.camera.far = 500;
+directionalLight.shadow.camera.left = -200;
+directionalLight.shadow.camera.right = 200;
+directionalLight.shadow.camera.top = 200;
+directionalLight.shadow.camera.bottom = -200;
+
+// Ensure objects cast and receive shadows
 plane.receiveShadow = true; // Ground receives shadows
 largeCube.castShadow = true; // Example object casts shadows
 largeCube.receiveShadow = true; // Example object receives shadows
@@ -212,18 +227,10 @@ getUserPosition()
             clearScene();
             scene.add(plane);
 
-            // Render roads
-            renderRoads(mapData.roads, coords, scene);
+            // Render all map elements
+            renderAll(mapData, coords, scene, cachedTreeModel);
 
-            // Render buildings
-            renderBuildings(mapData.buildings, coords, scene);
-
-            // Render naturals (trees)
-            if (cachedTreeModel) {
-                renderNaturals(mapData.naturals, coords, scene, cachedTreeModel);
-            }
-
-            scene.add(ambientLight);
+            //scene.add(ambientLight);
             scene.add(directionalLight);
 
             // Refresh the view by rendering the scene
@@ -262,16 +269,8 @@ getUserPosition()
                 clearScene();
                 scene.add(plane);
 
-                // Render roads
-                renderRoads(mapData.roads, { latitude, longitude }, scene);
-
-                // Render buildings
-                renderBuildings(mapData.buildings, { latitude, longitude }, scene);
-
-                // Render naturals (trees)
-                if (cachedTreeModel) {
-                    renderNaturals(mapData.naturals, { latitude, longitude }, scene, cachedTreeModel);
-                }
+                // Render all map elements
+                renderAll(mapData, { latitude, longitude }, scene, cachedTreeModel);
 
                 scene.add(ambientLight);
                 scene.add(directionalLight);
@@ -401,16 +400,8 @@ fetchMapButton.addEventListener('click', async () => {
         clearScene();
         scene.add(plane);
 
-        // Render roads
-        renderRoads(mapData.roads, { latitude, longitude }, scene);
-
-        // Render buildings
-        renderBuildings(mapData.buildings, { latitude, longitude }, scene);
-
-        // Render naturals (trees)
-        if (cachedTreeModel) {
-            renderNaturals(mapData.naturals, { latitude, longitude }, scene, cachedTreeModel);
-        }
+        // Render all map elements
+        renderAll(mapData, { latitude, longitude }, scene, cachedTreeModel);
 
         scene.add(ambientLight);
         scene.add(directionalLight);
