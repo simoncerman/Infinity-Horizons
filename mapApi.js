@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { renderRoads } from './rendering/renderRoads.js';
 import { renderBuildings } from './rendering/renderBuildings.js';
 import { renderNaturals } from './rendering/renderNaturals.js';
+import { renderAirport } from './rendering/renderAirport.js'; // Import renderAirport
 
 export async function fetchMapData(latitude, longitude, width, height) {
     const overpassApiUrl = 'https://overpass-api.de/api/interpreter';
@@ -11,12 +12,21 @@ export async function fetchMapData(latitude, longitude, width, height) {
         (
             way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             way["highway"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
-            way["natural"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
-            way["waterway"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["natural"](${bbox.south},${bbox.west},${bbox.north},${bbox.east}); // General natural tag
             way["natural"="wood"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["natural"="tree"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["natural"="grassland"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["natural"="scrub"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["natural"="heath"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["natural"="wetland"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             way["landuse"="forest"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             relation["natural"="wood"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
             relation["landuse"="forest"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["aeroway"="runway"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            relation["aeroway"="runway"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["aeroway"="taxiway"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["aeroway"="apron"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
+            way["aeroway"="aerodrome"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});
         );
         (._;>;);
         out body;
@@ -33,7 +43,6 @@ export async function fetchMapData(latitude, longitude, width, height) {
         }
         console.log('API response:', response);
         const data = await response.json();
-        console.log('Forests:', data.elements.filter(el => el.tags && (el.tags.natural === 'wood' || el.tags.landuse === 'forest')));
         return processMapData(data);
     } catch (error) {
         console.error('Error fetching map data:', error);
@@ -64,6 +73,7 @@ function processMapData(data) {
     const roads = [];
     const naturals = [];
     const waterways = [];
+    const airports = []; // Add airports array
 
     data.elements.forEach(element => {
         if (element.type === 'way') {
@@ -76,8 +86,8 @@ function processMapData(data) {
                 naturals.push({ path: vertices, tags: element.tags });
             } else if (element.tags.waterway) {
                 waterways.push({ path: vertices });
-            } else if (element.tags.landuse) {
-                naturals.push({ path: vertices, tags: element.tags });
+            } else if (element.tags.aeroway) {
+                airports.push({ path: vertices, tags: element.tags }); // Process airport-related data
             }
         }
     });
@@ -85,13 +95,15 @@ function processMapData(data) {
     console.log('Roads:', roads);
     console.log('Naturals:', naturals);
     console.log('Waterways:', waterways);
+    console.log('Airports:', airports);
 
-    return { buildings, roads, naturals, waterways };
+    return { buildings, roads, naturals, waterways, airports };
 }
 
 export function renderAll(mapData, coords, scene, treeModel) {
     renderRoads(mapData.roads, coords, scene);
     renderBuildings(mapData.buildings, coords, scene);
     renderNaturals(mapData.naturals, coords, scene, treeModel);
+    renderAirport(mapData.airports, coords, scene); // Render airports
 }
 
