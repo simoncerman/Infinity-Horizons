@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 import { getUserPosition } from './geolocation.js';
 import { fetchMapData,renderAll } from './mapApi.js';
+import { renderChunk } from './rendering/renderChunk.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+const chunkSize = 400; // Size of each chunk in meters
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -13,9 +16,17 @@ renderer.shadowMap.enabled = true; // Enable shadows in the renderer
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 document.body.appendChild(renderer.domElement);
 
-camera.position.z = 125;
-camera.position.y = 40;
-camera.position.x = 0; // Set camera position
+// camera offset from central point
+const cameraOffset = {
+    x: 0,
+    y: 40,
+    z: 125
+};
+
+camera.position.z = cameraOffset.z; 
+camera.position.y = cameraOffset.y; 
+camera.position.x = cameraOffset.x; 
+//TODO: Rework camera rotations
 camera.rotation.x = -Math.PI / 180 * 75; // Rotate camera 75 degrees downward
 
 let controls = {
@@ -37,19 +48,11 @@ const largeCube = new THREE.Mesh(largeCubeGeometry, largeCubeMaterial);
 largeCube.position.set(0, 0, 0); // Set large cube to the center of the scene
 scene.add(largeCube);
 
-// Add a plane under the whole map
-const planeGeometry = new THREE.PlaneGeometry(1000, 1000); // Large plane
-const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x8ec844 }); // Light green color
-const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-plane.rotation.x = -Math.PI / 2; // Rotate to lie flat
-plane.position.y = -0.2; // Position at ground level
-plane.receiveShadow = true; // Enable receiving shadows
-scene.add(plane);
-
 // Add lighting to the scene
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); // Increase ambient light intensity
 scene.add(ambientLight);
 
+// TODO: Reimplement directional light for large scene with many chunks
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // Increase directional light intensity
 directionalLight.position.set(50, 100, 50); // Position the light
 directionalLight.castShadow = true; // Enable shadows
@@ -70,125 +73,14 @@ scene.add(directionalLight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 
-// Ensure objects cast and receive shadows
-plane.receiveShadow = true; // Ground receives shadows
 largeCube.castShadow = true; // Example object casts shadows
-largeCube.receiveShadow = true; // Example object receives shadows
 
 let treeModel = null; // Reference to the tree model
 let cachedTreeModel = null; // Cache for the tree model
 
-function clearScene() {
-    while (scene.children.length > 1) { // Keep the large cube in the scene
-        scene.remove(scene.children[1]);
-    }
-}
-
 let drift = { x: 0, z: 0 }; // Drift velocity
 const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
 
-function handleKeyDown(event) {
-    if (event.key === 'w') controls.forward = true;
-    if (event.key === 's') controls.backward = true;
-    if (event.key === 'a') controls.left = true;
-    if (event.key === 'd') controls.right = true;
-}
-
-function handleKeyUp(event) {
-    if (event.key === 'w') controls.forward = false;
-    if (event.key === 's') controls.backward = false;
-    if (event.key === 'a') controls.left = false;
-    if (event.key === 'd') controls.right = false;
-}
-
-function handleMouseDown(event) {
-    controls.dragging = true;
-    controls.dragStart.x = event.clientX;
-    controls.dragStart.y = event.clientY;
-    drift.x = 0; // Reset drift when dragging starts
-    drift.z = 0;
-}
-
-function handleMouseMove(event) {
-    if (controls.dragging) {
-        // It will update the position of the camera, the rotation will be 45 in x and 45 in y
-        const deltaX = event.clientX - controls.dragStart.x;
-        const deltaY = event.clientY - controls.dragStart.y;
-        camera.position.x -= deltaX * 0.07; // Adjust the multiplier for sensitivity
-        camera.position.z -= deltaY * 0.07; // Adjust the multiplier for sensitivity
-        //camera.rotation.x = controls.rotation.x;
-        camera.rotation.y = controls.rotation.y;
-        camera.rotation.z = controls.rotation.z;
-
-        drift.x = deltaX * 0.07; // Update drift velocity
-        drift.z = deltaY * 0.07;
-
-        controls.dragStart.x = event.clientX; // Update drag start position
-        controls.dragStart.y = event.clientY;
-    }
-}
-
-function handleMouseUp() {
-    controls.dragging = false;
-}
-
-function handleScroll(event) {
-    const scrollSpeed = 1; // Adjust the multiplier for sensitivity
-    camera.position.y -= event.deltaY * 0.03 * scrollSpeed; // Scroll up moves down, scroll down moves up
-    camera.position.y = Math.max(5, camera.position.y); // Prevent the camera from going below ground level (minimum height is 5)
-
-    // Adjust the camera's X rotation based on height
-    const maxAngle = -Math.PI / 4; // Maximum downward angle (-45 degrees)
-    const minAngle = 0; // Straight angle (0 degrees)
-    const heightRange = 50; // Height range for smooth transition
-    const normalizedHeight = Math.min(1, (camera.position.y - 5) / heightRange); // Normalize height between 0 and 1
-    camera.rotation.x = minAngle + normalizedHeight * (maxAngle - minAngle); // Interpolate between minAngle and maxAngle
-}
-
-window.addEventListener('wheel', handleScroll);
-
-function updateCameraPosition() {
-    const speed = 4; // Increased speed (4x faster)
-    if (controls.forward) {
-        camera.position.z -= Math.cos(controls.rotation.y) * speed;
-        camera.position.x -= Math.sin(controls.rotation.y) * speed;
-    }
-    if (controls.backward) {
-        camera.position.z += Math.cos(controls.rotation.y) * speed;
-        camera.position.x += Math.sin(controls.rotation.y) * speed;
-    }
-    if (controls.left) {
-        camera.position.x -= Math.cos(controls.rotation.y) * speed;
-        camera.position.z += Math.sin(controls.rotation.y) * speed;
-    }
-    if (controls.right) {
-        camera.position.x += Math.cos(controls.rotation.y) * speed;
-        camera.position.z -= Math.sin(controls.rotation.y) * speed;
-    }
-    //camera.rotation.x = controls.rotation.x;
-    camera.rotation.y = controls.rotation.y;
-    camera.rotation.z = controls.rotation.z;
-}
-
-function applyDrift() {
-    if (!controls.dragging) {
-        camera.position.x -= drift.x;
-        camera.position.z -= drift.z;
-
-        drift.x *= driftDecay; // Apply decay to drift
-        drift.z *= driftDecay;
-
-        // Stop drift when it's very small
-        if (Math.abs(drift.x) < 0.001) drift.x = 0;
-        if (Math.abs(drift.z) < 0.001) drift.z = 0;
-    }
-}
-
-function animate() {
-    updateCameraPosition(); // Update the camera position based on controls
-    applyDrift(); // Apply drift effect
-    renderer.render(scene, camera); // Render the scene
-}
 renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
 
 // Load saved geolocation data from localStorage
@@ -207,23 +99,10 @@ getUserPosition()
         localStorage.setItem('longitude', coords.longitude);
 
         try {
-            const width = 500; // Smaller width for visualization
-            const height = 500; // Smaller height for visualization
-            const mapData = await fetchMapData(coords.latitude, coords.longitude, width, height);
-
-            // Clear the scene before rendering new data
             clearScene();
-            scene.add(plane);
-
-            // Render all map elements
-            renderAll(mapData, coords, scene, cachedTreeModel);
-
-            //scene.add(ambientLight);
-            scene.add(directionalLight);
-
-            // Refresh the view by rendering the scene
+            renderChunk(0, 0, scene, chunkSize, coords); // Initial chunk rendering
+            scene.add(ambientLight);
             renderer.render(scene, camera);
-
         } catch (error) {
             console.error('Error fetching map data:', error);
         }
@@ -251,7 +130,7 @@ getUserPosition()
 
                 const width = 500; // Smaller width for visualization
                 const height = 500; // Smaller height for visualization
-                const mapData = await fetchMapData(latitude, longitude, width, height);
+                //const mapData = await fetchMapData(latitude, longitude, width, height);
 
                 // Clear the scene before rendering new data
                 clearScene();
@@ -273,32 +152,6 @@ getUserPosition()
         }
     });
 
-function loadModel(path, position, scene, callback) {
-    const loader = new GLTFLoader();
-    loader.load(
-        path,
-        (gltf) => {
-            const model = gltf.scene;
-            model.position.set(position.x, position.y, position.z);
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true; // Enable shadows for model meshes
-                    child.receiveShadow = true; // Enable receiving shadows
-                }
-            });
-            if (path === '/models/Low Poly Tree.glb') {
-                cachedTreeModel = model; // Cache the tree model
-            }
-            scene.add(model);
-            console.log(`Model loaded from ${path}`);
-            if (callback) callback(model);
-        },
-        undefined,
-        (error) => {
-            console.error(`Error loading model from ${path}:`, error);
-        }
-    );
-}
 
 // Load the "Low Poly Tree.glb" model once and store its reference
 loadModel('/models/Low Poly Tree.glb', { x: 50, y: 0, z: 0 }, scene, (model) => {
@@ -397,7 +250,7 @@ fetchMapButton.addEventListener('click', async () => {
 
         const width = 500; // Smaller width for visualization
         const height = 500; // Smaller height for visualization
-        const mapData = await fetchMapData(latitude, longitude, width, height);
+        //const mapData = await fetchMapData(latitude, longitude, width, height);
 
         // Clear the scene before rendering new data
         clearScene();
@@ -416,8 +269,146 @@ fetchMapButton.addEventListener('click', async () => {
     }
 });
 
+function loadModel(path, position, scene, callback) {
+    const loader = new GLTFLoader();
+    loader.load(
+        path,
+        (gltf) => {
+            const model = gltf.scene;
+            model.position.set(position.x, position.y, position.z);
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true; // Enable shadows for model meshes
+                    child.receiveShadow = true; // Enable receiving shadows
+                }
+            });
+            if (path === '/models/Low Poly Tree.glb') {
+                cachedTreeModel = model; // Cache the tree model
+            }
+            scene.add(model);
+            console.log(`Model loaded from ${path}`);
+            if (callback) callback(model);
+        },
+        undefined,
+        (error) => {
+            console.error(`Error loading model from ${path}:`, error);
+        }
+    );
+}
+
+
+function handleKeyDown(event) {
+    if (event.key === 'w') controls.forward = true;
+    if (event.key === 's') controls.backward = true;
+    if (event.key === 'a') controls.left = true;
+    if (event.key === 'd') controls.right = true;
+}
+
+function handleKeyUp(event) {
+    if (event.key === 'w') controls.forward = false;
+    if (event.key === 's') controls.backward = false;
+    if (event.key === 'a') controls.left = false;
+    if (event.key === 'd') controls.right = false;
+}
+
+function handleMouseDown(event) {
+    controls.dragging = true;
+    controls.dragStart.x = event.clientX;
+    controls.dragStart.y = event.clientY;
+    drift.x = 0; // Reset drift when dragging starts
+    drift.z = 0;
+}
+
+function handleMouseMove(event) {
+    if (controls.dragging) {
+        // It will update the position of the camera, the rotation will be 45 in x and 45 in y
+        const deltaX = event.clientX - controls.dragStart.x;
+        const deltaY = event.clientY - controls.dragStart.y;
+        camera.position.x -= deltaX * 0.07; // Adjust the multiplier for sensitivity
+        camera.position.z -= deltaY * 0.07; // Adjust the multiplier for sensitivity
+        //camera.rotation.x = controls.rotation.x;
+        camera.rotation.y = controls.rotation.y;
+        camera.rotation.z = controls.rotation.z;
+
+        drift.x = deltaX * 0.07; // Update drift velocity
+        drift.z = deltaY * 0.07;
+
+        controls.dragStart.x = event.clientX; // Update drag start position
+        controls.dragStart.y = event.clientY;
+    }
+}
+
+function handleMouseUp() {
+    controls.dragging = false;
+}
+
+function handleScroll(event) {
+    const scrollSpeed = 1; // Adjust the multiplier for sensitivity
+    camera.position.y -= event.deltaY * 0.03 * scrollSpeed; // Scroll up moves down, scroll down moves up
+    camera.position.y = Math.max(5, camera.position.y); // Prevent the camera from going below ground level (minimum height is 5)
+
+    // Adjust the camera's X rotation based on height
+    const maxAngle = -Math.PI / 4; // Maximum downward angle (-45 degrees)
+    const minAngle = 0; // Straight angle (0 degrees)
+    const heightRange = 50; // Height range for smooth transition
+    const normalizedHeight = Math.min(1, (camera.position.y - 5) / heightRange); // Normalize height between 0 and 1
+    camera.rotation.x = minAngle + normalizedHeight * (maxAngle - minAngle); // Interpolate between minAngle and maxAngle
+}
+
+
+function updateCameraPosition() {
+    const speed = 4; // Increased speed (4x faster)
+    if (controls.forward) {
+        camera.position.z -= Math.cos(controls.rotation.y) * speed;
+        camera.position.x -= Math.sin(controls.rotation.y) * speed;
+    }
+    if (controls.backward) {
+        camera.position.z += Math.cos(controls.rotation.y) * speed;
+        camera.position.x += Math.sin(controls.rotation.y) * speed;
+    }
+    if (controls.left) {
+        camera.position.x -= Math.cos(controls.rotation.y) * speed;
+        camera.position.z += Math.sin(controls.rotation.y) * speed;
+    }
+    if (controls.right) {
+        camera.position.x += Math.cos(controls.rotation.y) * speed;
+        camera.position.z -= Math.sin(controls.rotation.y) * speed;
+    }
+    //camera.rotation.x = controls.rotation.x;
+    camera.rotation.y = controls.rotation.y;
+    camera.rotation.z = controls.rotation.z;
+}
+
+function applyDrift() {
+    if (!controls.dragging) {
+        camera.position.x -= drift.x;
+        camera.position.z -= drift.z;
+
+        drift.x *= driftDecay; // Apply decay to drift
+        drift.z *= driftDecay;
+
+        // Stop drift when it's very small
+        if (Math.abs(drift.x) < 0.001) drift.x = 0;
+        if (Math.abs(drift.z) < 0.001) drift.z = 0;
+    }
+}
+
+function animate() {
+    updateCameraPosition(); // Update the camera position based on controls
+    applyDrift(); // Apply drift effect
+    renderer.render(scene, camera); // Render the scene
+}
+
+
+function clearScene() {
+    while (scene.children.length > 1) { // Keep the large cube in the scene
+        scene.remove(scene.children[1]);
+    }
+}
+
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);
 window.addEventListener('mousedown', handleMouseDown);
 window.addEventListener('mousemove', handleMouseMove);
 window.addEventListener('mouseup', handleMouseUp);
+window.addEventListener('wheel', handleScroll);
