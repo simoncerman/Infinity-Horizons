@@ -37,8 +37,12 @@ export function renderRoads(roads, coords, scene) {
             bevelSize: 1,
         };
         const roadGeometry = new THREE.ExtrudeGeometry(roadShape, extrudeSettings);
-        const roadMaterial = new THREE.MeshBasicMaterial({ color: properties.color });
+        const roadMaterial = new THREE.MeshStandardMaterial({ color: properties.color });
         const roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
+
+        // Enable shadows for roads
+        roadMesh.castShadow = true;
+        roadMesh.receiveShadow = true;
 
         roadMesh.position.set(0, properties.height, 0); // Adjust height for the road
 
@@ -61,8 +65,11 @@ export function renderRoads(roads, coords, scene) {
             };
 
             const lineGeometry = new THREE.ExtrudeGeometry(lineShape, lineExtrudeSettings);
-            const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const lineMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
             const lineMesh = new THREE.Mesh(lineGeometry, lineMaterial);
+
+            // Enable shadows for road lines
+            lineMesh.receiveShadow = true;
 
             lineMesh.position.set(0, properties.height + 0.01, 0); // Adjust height for the line
 

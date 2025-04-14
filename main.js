@@ -47,10 +47,10 @@ plane.receiveShadow = true; // Enable receiving shadows
 scene.add(plane);
 
 // Add lighting to the scene
-const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Increase ambient light intensity
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); // Increase ambient light intensity
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9); // Strong directional light
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // Increase directional light intensity
 directionalLight.position.set(50, 100, 50); // Position the light
 directionalLight.castShadow = true; // Enable shadows
 
