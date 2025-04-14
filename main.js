@@ -4,7 +4,7 @@ import { fetchMapData,renderAll } from './mapApi.js';
 import { renderChunk } from './rendering/renderChunk.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-const chunkSize = 400; // Size of each chunk in meters
+const chunkSize = 1000; // Size of each chunk in meters
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -81,6 +81,28 @@ let cachedTreeModel = null; // Cache for the tree model
 let drift = { x: 0, z: 0 }; // Drift velocity
 const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
 
+const loadedChunks = new Set(); // Keep track of already loaded chunks
+
+function getChunkCoordinates(position, chunkSize) {
+    // Calculate the chunk coordinates based on the camera position. In start you are in the middle so your chunk is from -chunkSize/2 to chunkSize/2
+    var chunkOffset = chunkSize / 2;
+    const x = Math.floor((position.x + chunkOffset) / chunkSize);
+    const z = Math.floor((position.z + chunkOffset) / chunkSize);
+    return { x, z };
+}
+
+function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
+    const currentChunk = getChunkCoordinates(cameraPosition, chunkSize);
+    console.log(`Current Chunk: X: ${currentChunk.x}, Z: ${currentChunk.z}`);
+
+    // Load the current chunk if not already loaded
+    const chunkKey = `${currentChunk.x},${currentChunk.z}`;
+    if (!loadedChunks.has(chunkKey)) {
+        loadedChunks.add(chunkKey);
+        renderChunk(currentChunk.x, currentChunk.z, scene, chunkSize, referencePoint);
+    }
+}
+
 renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
 
 // Load saved geolocation data from localStorage
@@ -100,7 +122,6 @@ getUserPosition()
 
         try {
             clearScene();
-            renderChunk(0, 0, scene, chunkSize, coords); // Initial chunk rendering
             scene.add(ambientLight);
             renderer.render(scene, camera);
         } catch (error) {
@@ -396,6 +417,10 @@ function applyDrift() {
 function animate() {
     updateCameraPosition(); // Update the camera position based on controls
     applyDrift(); // Apply drift effect
+
+    // Check if the camera has moved to a new chunk
+    checkAndLoadChunks(camera.position, chunkSize, scene, { latitude: savedLatitude, longitude: savedLongitude });
+
     renderer.render(scene, camera); // Render the scene
 }
 

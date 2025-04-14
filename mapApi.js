@@ -35,6 +35,8 @@ export async function fetchMapData(latitude, longitude, width, height) {
 
     console.log('Overpass API query:', latitude, longitude, width, height);
     try {
+        console.log('Sending API request...');
+        console.log('Query:', query);
         const response = await fetch(overpassApiUrl, {
             method: 'POST',
             body: query,
