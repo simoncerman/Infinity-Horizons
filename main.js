@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getUserPosition } from './geolocation.js';
-import { fetchMapData, renderRoads, renderBuildings, renderNaturals } from './mapApi.js';
+import { fetchMapData,renderAll } from './mapApi.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
@@ -9,6 +9,8 @@ const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0xffffff, 1); // Set background color to white
+renderer.shadowMap.enabled = true; // Enable shadows in the renderer
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 document.body.appendChild(renderer.domElement);
 
 camera.position.z = 125;
@@ -37,17 +39,18 @@ scene.add(largeCube);
 
 // Add a plane under the whole map
 const planeGeometry = new THREE.PlaneGeometry(1000, 1000); // Large plane
-const planeMaterial = new THREE.MeshBasicMaterial({ color: 0x8cc543, side: THREE.DoubleSide });
+const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x8ec844 }); // Light green color
 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 plane.rotation.x = -Math.PI / 2; // Rotate to lie flat
 plane.position.y = -0.2; // Position at ground level
+plane.receiveShadow = true; // Enable receiving shadows
 scene.add(plane);
 
 // Add lighting to the scene
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Soft white light
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Increase ambient light intensity
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); // Strong directional light
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9); // Strong directional light
 directionalLight.position.set(50, 100, 50); // Position the light
 directionalLight.castShadow = true; // Enable shadows
 
@@ -63,11 +66,11 @@ directionalLight.shadow.camera.bottom = -200;
 
 scene.add(directionalLight);
 
-// Enable shadows in the renderer
+// Ensure shadows are enabled in the renderer
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 
-// Update objects to cast and receive shadows
+// Ensure objects cast and receive shadows
 plane.receiveShadow = true; // Ground receives shadows
 largeCube.castShadow = true; // Example object casts shadows
 largeCube.receiveShadow = true; // Example object receives shadows
@@ -188,32 +191,34 @@ function animate() {
 }
 renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
 
+// Load saved geolocation data from localStorage
+const savedLatitude = localStorage.getItem('latitude');
+const savedLongitude = localStorage.getItem('longitude');
+if (savedLatitude && savedLongitude) {
+    console.log(`Loaded saved geolocation: Latitude ${savedLatitude}, Longitude ${savedLongitude}`);
+}
+
 getUserPosition()
     .then(async (coords) => {
         console.log(`User position: Latitude ${coords.latitude}, Longitude ${coords.longitude}`);
+
+        // Save geolocation data to localStorage
+        localStorage.setItem('latitude', coords.latitude);
+        localStorage.setItem('longitude', coords.longitude);
+
         try {
-            
             const width = 500; // Smaller width for visualization
             const height = 500; // Smaller height for visualization
             const mapData = await fetchMapData(coords.latitude, coords.longitude, width, height);
 
             // Clear the scene before rendering new data
             clearScene();
-            scene.add(plane);   
+            scene.add(plane);
 
+            // Render all map elements
+            renderAll(mapData, coords, scene, cachedTreeModel);
 
-            // Render roads
-            renderRoads(mapData.roads, coords, scene);
-
-            // Render buildings
-            renderBuildings(mapData.buildings, coords, scene);
-
-            // Render naturals (trees)
-            if (cachedTreeModel) {
-                renderNaturals(mapData.naturals, coords, scene, cachedTreeModel);
-            }
-
-            scene.add(ambientLight);
+            //scene.add(ambientLight);
             scene.add(directionalLight);
 
             // Refresh the view by rendering the scene
@@ -223,8 +228,49 @@ getUserPosition()
             console.error('Error fetching map data:', error);
         }
     })
-    .catch((error) => {
+    .catch(async (error) => {
         console.error('Error getting user position:', error);
+
+        // Fallback to saved address if geolocation fails
+        const savedAddress = localStorage.getItem('address');
+        if (savedAddress) {
+            console.log(`Using saved address: ${savedAddress}`);
+            try {
+                const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(savedAddress)}&format=json`);
+                const geocodeData = await geocodeResponse.json();
+
+                if (!geocodeData || geocodeData.length === 0) {
+                    console.error('Saved address not found. Please update the address.');
+                    return;
+                }
+
+                const latitude = parseFloat(geocodeData[0].lat);
+                const longitude = parseFloat(geocodeData[0].lon);
+
+                console.log(`Geocoded Address: Latitude ${latitude}, Longitude ${longitude}`);
+
+                const width = 500; // Smaller width for visualization
+                const height = 500; // Smaller height for visualization
+                const mapData = await fetchMapData(latitude, longitude, width, height);
+
+                // Clear the scene before rendering new data
+                clearScene();
+                scene.add(plane);
+
+                // Render all map elements
+                renderAll(mapData, { latitude, longitude }, scene, cachedTreeModel);
+
+                scene.add(ambientLight);
+                scene.add(directionalLight);
+
+                // Refresh the view by rendering the scene
+                renderer.render(scene, camera);
+            } catch (geocodeError) {
+                console.error('Error using saved address:', geocodeError);
+            }
+        } else {
+            console.error('No saved address available. Please provide an address.');
+        }
     });
 
 function loadModel(path, position, scene, callback) {
@@ -267,6 +313,9 @@ const posZInput = document.getElementById('posZ');
 const rotXInput = document.getElementById('rotX');
 const rotYInput = document.getElementById('rotY');
 const rotZInput = document.getElementById('rotZ');
+const lightXInput = document.getElementById('lightX');
+const lightYInput = document.getElementById('lightY');
+const lightZInput = document.getElementById('lightZ');
 
 fovInput.addEventListener('input', () => {
     camera.fov = parseFloat(fovInput.value);
@@ -295,7 +344,77 @@ rotYInput.addEventListener('input', () => {
 
 rotZInput.addEventListener('input', () => {
     camera.rotation.z = parseFloat(rotZInput.value) * (Math.PI / 180);
-}); // Add the missing closing parenthesis here
+});
+
+lightXInput.addEventListener('input', () => {
+    directionalLight.position.x = parseFloat(lightXInput.value);
+});
+
+lightYInput.addEventListener('input', () => {
+    directionalLight.position.y = parseFloat(lightYInput.value);
+});
+
+lightZInput.addEventListener('input', () => {
+    directionalLight.position.z = parseFloat(lightZInput.value);
+});
+
+// User info panel elements
+const addressInput = document.getElementById('address');
+const fetchMapButton = document.getElementById('fetch-map');
+
+// Load saved address from localStorage
+const savedAddress = localStorage.getItem('address');
+if (savedAddress) {
+    addressInput.value = savedAddress;
+}
+
+fetchMapButton.addEventListener('click', async () => {
+    const address = addressInput.value.trim();
+
+    if (!address) {
+        alert('Please enter a valid address.');
+        return;
+    }
+
+    // Save the address to localStorage
+    localStorage.setItem('address', address);
+
+    console.log(`Fetching map data for Address: ${address}`);
+    try {
+        // Convert address to latitude and longitude using a geocoding API
+        const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`);
+        const geocodeData = await geocodeResponse.json();
+
+        if (!geocodeData || geocodeData.length === 0) {
+            alert('Address not found. Please try a different address.');
+            return;
+        }
+
+        const latitude = parseFloat(geocodeData[0].lat);
+        const longitude = parseFloat(geocodeData[0].lon);
+
+        console.log(`Geocoded Address: Latitude ${latitude}, Longitude ${longitude}`);
+
+        const width = 500; // Smaller width for visualization
+        const height = 500; // Smaller height for visualization
+        const mapData = await fetchMapData(latitude, longitude, width, height);
+
+        // Clear the scene before rendering new data
+        clearScene();
+        scene.add(plane);
+
+        // Render all map elements
+        renderAll(mapData, { latitude, longitude }, scene, cachedTreeModel);
+
+        scene.add(ambientLight);
+        scene.add(directionalLight);
+
+        // Refresh the view by rendering the scene
+        renderer.render(scene, camera);
+    } catch (error) {
+        console.error('Error fetching map data:', error);
+    }
+});
 
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);

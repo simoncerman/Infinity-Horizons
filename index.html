@@ -23,6 +23,24 @@
         width: 100%;
         margin-bottom: 10px;
       }
+      #user-info-panel {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+        font-family: Arial, sans-serif;
+        z-index: 1000;
+      }
+      #user-info-panel label {
+        display: block;
+        margin-bottom: 5px;
+      }
+      #user-info-panel input {
+        width: 100%;
+        margin-bottom: 10px;
+      }
     </style>
   </head>
   <body>
@@ -47,6 +65,21 @@
       
       <label for="rotZ">Rotation Z</label>
       <input type="range" id="rotZ" min="-180" max="180" value="0">
+
+      <label for="lightX">Light Position X</label>
+      <input type="range" id="lightX" min="-200" max="200" value="50">
+
+      <label for="lightY">Light Position Y</label>
+      <input type="range" id="lightY" min="0" max="200" value="100">
+
+      <label for="lightZ">Light Position Z</label>
+      <input type="range" id="lightZ" min="-200" max="200" value="50">
+    </div>
+    <div id="user-info-panel">
+      <label for="address">Address</label>
+      <input type="text" id="address" placeholder="Enter address">
+
+      <button id="fetch-map">Fetch Map</button>
     </div>
     <script type="module" src="/main.js"></script>
   </body>
