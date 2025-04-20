@@ -34,7 +34,7 @@ export function renderBuildings(buildings, coords, scene, offset) {
 
             // Enable shadows for buildings
             buildingMesh.castShadow = true; // Ensure buildings cast shadows
-            buildingMesh.receiveShadow = true; // Buildings do not need to receive shadows
+            buildingMesh.receiveShadow = false; // Buildings do not need to receive shadows
 
             buildingMesh.position.set(
                 (startX + endX) / 2,

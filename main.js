@@ -310,6 +310,13 @@ function loadModel(path, position, scene, callback) {
     );
 }
 
+// Enable frustum culling for all objects in the scene
+scene.traverse((object) => {
+    if (object.isMesh) {
+        object.frustumCulled = true; // Skip rendering objects outside the camera's view
+    }
+});
+
 function updateAirplanePosition() {
     if (!plane) return;
 
