@@ -19,15 +19,21 @@ document.body.appendChild(renderer.domElement);
 // camera offset from central point
 const cameraOffset = {
     x: 0,
-    y: 40,
+    y: 100,
     z: 125
 };
 
 camera.position.z = cameraOffset.z; 
 camera.position.y = cameraOffset.y; 
 camera.position.x = cameraOffset.x; 
+
+// Set fov
+camera.fov = 40; // Set field of view to 40 degrees
+camera.rotation.x = -Math.PI / 180 * 50; // Rotate camera 75 degrees downward
+
+camera.updateProjectionMatrix(); // Ensure the projection matrix is updated
+
 //TODO: Rework camera rotations
-camera.rotation.x = -Math.PI / 180 * 75; // Rotate camera 75 degrees downward
 
 let controls = {
     forward: false,
@@ -78,6 +84,21 @@ largeCube.castShadow = true; // Example object casts shadows
 
 let treeModel = null; // Reference to the tree model
 let cachedTreeModel = null; // Cache for the tree model
+
+let plane = null; // Reference to the plane model
+
+let airplaneSpeed = 0; // Current speed of the airplane
+const maxSpeed = 10; // Maximum speed
+const acceleration = 0.2; // Acceleration rate
+const deceleration = 0.1; // Deceleration rate
+const rotationSpeed = Math.PI / 180 * 2; // Rotation speed (in radians)
+
+// Load the airplane model and add it to the scene
+loadModel('/models/Plane.glb', { x: 0, y: 20, z: 0 }, scene, (model) => {
+    plane = model;
+    plane.scale.set(1, 1, 1); // Scale the plane model
+    console.log('Plane model added to the scene at (0, 20, 0)');
+});
 
 let drift = { x: 0, z: 0 }; // Drift velocity
 const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
@@ -262,12 +283,43 @@ function loadModel(path, position, scene, callback) {
     );
 }
 
+function updateAirplanePosition() {
+    if (!plane) return;
+
+    // Move the airplane forward based on its speed
+    const direction = new THREE.Vector3();
+    plane.getWorldDirection(direction);
+    plane.position.addScaledVector(direction, airplaneSpeed);
+
+    // Synchronize the camera's position with the airplane
+    camera.position.set(
+        cameraOffset.x + plane.position.x,
+        cameraOffset.y, // Set camera height to 0 for a top-down view
+        cameraOffset.z + plane.position.z,
+    );
+    camera.lookAt(plane.position);
+}
+
+function updateDirectionalLightPosition() {
+    // Update the directional light's position relative to the airplane
+    if (plane) {
+        directionalLight.position.set(
+            plane.position.x + 50,
+            plane.position.y + 50,
+            plane.position.z + 50
+        );
+        directionalLight.target.position.copy(plane.position); // Ensure the light targets the airplane
+        directionalLight.target.updateMatrixWorld(); // Update the target's matrix
+    }
+}
 
 function handleKeyDown(event) {
-    if (event.key === 'w') controls.forward = true;
-    if (event.key === 's') controls.backward = true;
-    if (event.key === 'a') controls.left = true;
-    if (event.key === 'd') controls.right = true;
+    if (event.key === 'w') airplaneSpeed = Math.min(airplaneSpeed + acceleration, maxSpeed); // Increase thrust
+    if (event.key === 's') airplaneSpeed = Math.max(airplaneSpeed - deceleration, 0); // Decrease thrust
+    if (event.key === 'ArrowLeft') plane.rotation.y += rotationSpeed; // Rotate left
+    if (event.key === 'ArrowRight') plane.rotation.y -= rotationSpeed; // Rotate right
+    if (event.key === 'ArrowUp') plane.rotation.x = Math.max(plane.rotation.x - rotationSpeed, -Math.PI / 4); // Pitch up
+    if (event.key === 'ArrowDown') plane.rotation.x = Math.min(plane.rotation.x + rotationSpeed, Math.PI / 4); // Pitch down
 }
 
 function handleKeyUp(event) {
@@ -366,11 +418,19 @@ function applyDrift() {
     }
 }
 
+function updatePlanePosition() {
+    if (!plane) return;
+
+    // Synchronize the plane's position with the camera
+    plane.position.set(camera.position.x, camera.position.y - 20, camera.position.z);
+    plane.rotation.copy(camera.rotation); // Match the plane's rotation with the camera
+}
+
 function animate() {
-    updateCameraPosition(); // Update the camera position based on controls
+    updateAirplanePosition(); // Update the airplane's position and rotation
+    updateDirectionalLightPosition(); // Update the directional light's position
     applyDrift(); // Apply drift effect
-    // add directional light to the scene
-    scene.add(directionalLight);
+    scene.add(directionalLight); // Add directional light to the scene
     checkAndLoadChunks(camera.position, chunkSize, scene, startingPosition);
     renderer.render(scene, camera); // Render the scene
 }
