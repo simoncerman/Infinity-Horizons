@@ -3,7 +3,6 @@ import { renderRoads } from './rendering/renderRoads.js';
 import { renderBuildings } from './rendering/renderBuildings.js';
 import { renderNaturals } from './rendering/renderNaturals.js';
 import { renderAirport } from './rendering/renderAirport.js';
-import { renderWaterways } from './rendering/renderWaterways.js';
 
 export async function fetchMapData(latitude, longitude, width, height) {
     const overpassApiUrl = 'https://overpass-api.de/api/interpreter';
@@ -95,11 +94,11 @@ function processMapData(data) {
             }
         }
     });
-    console.log('Buildings:', buildings);
-    console.log('Roads:', roads);
-    console.log('Naturals:', naturals);
-    console.log('Waterways:', waterways);
-    console.log('Airports:', airports);
+    // console.log('Buildings:', buildings);
+    // console.log('Roads:', roads);
+    // console.log('Naturals:', naturals);
+    // console.log('Waterways:', waterways);
+    // console.log('Airports:', airports);
 
     return { buildings, roads, naturals, waterways, airports };
 }
@@ -107,8 +106,7 @@ function processMapData(data) {
 export function renderAll(mapData, coords, scene, offset) {
     renderRoads(mapData.roads, coords, scene, offset);
     renderBuildings(mapData.buildings, coords, scene, offset);
-    renderNaturals(mapData.naturals, coords, scene);
-    renderWaterways(mapData.waterways, coords, scene);
+    renderNaturals(mapData.naturals, coords, scene, offset);
     renderAirport(mapData.airports, coords, scene);
 }
 

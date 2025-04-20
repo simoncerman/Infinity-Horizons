@@ -89,7 +89,7 @@ let plane = null; // Reference to the plane model
 
 let airplaneSpeed = 0; // Current speed of the airplane
 const maxSpeed = 20; // Maximum speed
-const minSpeed = 0.1; // Minimum speed
+const minSpeed = 0; // Minimum speed
 const acceleration = 0.5; // Acceleration rate
 const deceleration = 0.3; // Deceleration rate
 const rotationSpeed = Math.PI / 180 * 2; // Rotation speed (in radians)

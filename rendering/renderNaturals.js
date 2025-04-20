@@ -1,53 +1,39 @@
 import * as THREE from 'three';
 
-
-export function renderNaturals(naturals, coords, scene, treeModel) {
+export function renderNaturals(naturals, coords, scene, offset) {
     naturals.forEach(natural => {
-        if (!natural.path || !treeModel) return;
-
-        // Convert path vertices to THREE.Vector3
-        const points = natural.path.map(vertex => new THREE.Vector3(
-            (vertex.x - coords.longitude) * 111320, // Convert longitude to meters
-            0,                                     // Place trees at ground level
-            -(vertex.z - coords.latitude) * 111320 // Convert latitude to meters and invert z-axis
-        ));
-
-        // Draw a white line along the path
-        const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffff00 });
-        const line = new THREE.Line(lineGeometry, lineMaterial);
-        scene.add(line);
-
-        // Convert points to 2D for polygon checks
-        const polygon = points.map(point => new THREE.Vector2(point.x, point.z));
-
-        // Calculate the area of the polygon
-        let area = 0;
-        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-            area += (polygon[j].x + polygon[i].x) * (polygon[j].y - polygon[i].y);
-        }
-        area = Math.abs(area / 2); // Final area in square meters
-
-        // Generate random positions within the bounding box
-        const boundingBox = new THREE.Box2();
-        polygon.forEach(point => boundingBox.expandByPoint(point));
-
-        // Set the number of trees based on the area size
-        const treeDensity = 0.01; // Trees per square meter
-        const treeCount = Math.floor(area * treeDensity);
-
-        for (let i = 0; i < treeCount; i++) {
-            const randomX = boundingBox.min.x + Math.random() * (boundingBox.max.x - boundingBox.min.x);
-            const randomZ = boundingBox.min.y + Math.random() * (boundingBox.max.y - boundingBox.min.y);
-
-            // Check if the random point is inside the polygon
-            if (isPointInPolygon(new THREE.Vector2(randomX, randomZ), polygon)) {
-                const treeClone = treeModel.clone();
-                treeClone.position.set(randomX, 0, randomZ); // Place tree at random position
-                scene.add(treeClone);
-            }
-        }
+        console.log('Natural:', natural);
+        if (natural.tags.natural === "water") renderWaterways(natural, coords, scene, offset);
     });
+}
+
+function renderWaterways(waterway, coords, scene, offset) {
+    const offsetX = offset.offsetX;
+    const offsetY = offset.offsetY;
+    console.log('Waterway:', waterway);
+    if (!waterway.path) return;
+
+    // Convert path vertices to THREE.Vector2 for the polygon
+    const points = waterway.path.map(vertex => new THREE.Vector2(
+        ((vertex.x - coords.longitude) * 111320) + offsetX, // Apply offsetX
+        -((vertex.z - coords.latitude) * 111320) + offsetY  // Apply offsetY
+    ));
+
+    // Create a shape from the points
+    const shape = new THREE.Shape(points);
+
+    // Create geometry and material for the polygon
+    const geometry = new THREE.ShapeGeometry(shape);
+    const material = new THREE.MeshStandardMaterial({ color: 0x0000ff, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geometry, material);
+
+    // Set the position of the mesh to ground level
+    mesh.position.y = 0.01; // Slightly above ground to avoid z-fighting
+
+    // Add the polygon to the scene
+    mesh.rotation.x = Math.PI / 2; // Rotate to lie flat
+    mesh.receiveShadow = true; // Ensure the polygon receives shadows
+    scene.add(mesh);
 }
 
 // Utility function to check if a point is inside a polygon

@@ -5,11 +5,11 @@ export function renderRoads(roads, coords, scene, offset) {
     const offsetY = offset.offsetY;
     // Define road properties based on type
     const roadProperties = {
-        highway: { color: 0xD3D3D3, width: 3.5, height: 0.04, drawLines: true },
-        tertiary: { color: 0x616267, width: 7, height: 0.03, drawLines: true },
-        residential: { color: 0x616267, width: 6, height: 0.02 },
-        footway: { color: 0x8B4513, width: 1.5, height: 0.01 },
-        default: { color: 0x808080, width: 3, height: 0.01 } // Default properties for unknown types
+        highway: { color: 0xD3D3D3, width: 3.5, height: 0.06, drawLines: true },
+        tertiary: { color: 0x616267, width: 7, height: 0.05, drawLines: true },
+        residential: { color: 0x616267, width: 6, height: 0.04 },
+        footway: { color: 0x8B4513, width: 1.5, height: 0.03 },
+        default: { color: 0x808080, width: 3, height: 0.02 } // Default properties for unknown types
     };
 
     roads.forEach(road => {
