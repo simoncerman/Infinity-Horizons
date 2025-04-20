@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 
-export function renderRoads(roads, coords, scene) {
+export function renderRoads(roads, coords, scene, offset) {
+    const offsetX = offset.offsetX;
+    const offsetY = offset.offsetY;
     // Define road properties based on type
     const roadProperties = {
         highway: { color: 0xD3D3D3, width: 3.5, height: 0.04, drawLines: true },
@@ -13,9 +15,9 @@ export function renderRoads(roads, coords, scene) {
     roads.forEach(road => {
         const properties = roadProperties[road.tags.highway] || roadProperties.default;
         const points = road.path.map(vertex => new THREE.Vector3(
-            (vertex.x - coords.longitude) * 111320, // Convert longitude to meters
-            0,                                     // Place road at ground level
-            -(vertex.z - coords.latitude) * 111320 // Convert latitude to meters and invert z-axis
+            ((vertex.x - coords.longitude) * 111320) + offsetX, // Apply offsetX
+            0,                                                 // Place road at ground level
+            -((vertex.z - coords.latitude) * 111320) + offsetY  // Apply offsetY
         ));
 
         // Create a smooth curve using CatmullRomCurve3

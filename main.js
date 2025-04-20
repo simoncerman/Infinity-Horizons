@@ -4,7 +4,7 @@ import { fetchMapData,renderAll } from './mapApi.js';
 import { renderChunk } from './rendering/renderChunk.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-const chunkSize = 1000; // Size of each chunk in meters
+const chunkSize = 500; // Size of each chunk in meters
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -83,95 +83,16 @@ const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
 
 const loadedChunks = new Set(); // Keep track of already loaded chunks
 
-function getChunkCoordinates(position, chunkSize) {
-    // Calculate the chunk coordinates based on the camera position. In start you are in the middle so your chunk is from -chunkSize/2 to chunkSize/2
-    var chunkOffset = chunkSize / 2;
-    const x = Math.floor((position.x + chunkOffset) / chunkSize);
-    const z = Math.floor((position.z + chunkOffset) / chunkSize);
-    return { x, z };
-}
+let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Default starting position
 
-function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
-    const currentChunk = getChunkCoordinates(cameraPosition, chunkSize);
-    console.log(`Current Chunk: X: ${currentChunk.x}, Z: ${currentChunk.z}`);
-
-    // Load the current chunk if not already loaded
-    const chunkKey = `${currentChunk.x},${currentChunk.z}`;
-    if (!loadedChunks.has(chunkKey)) {
-        loadedChunks.add(chunkKey);
-        renderChunk(currentChunk.x, currentChunk.z, scene, chunkSize, referencePoint);
-    }
-}
-
-renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
-
-// Load saved geolocation data from localStorage
-const savedLatitude = localStorage.getItem('latitude');
-const savedLongitude = localStorage.getItem('longitude');
-if (savedLatitude && savedLongitude) {
-    console.log(`Loaded saved geolocation: Latitude ${savedLatitude}, Longitude ${savedLongitude}`);
-}
-
-getUserPosition()
+getUserPosition(startingPosition)
     .then(async (coords) => {
-        console.log(`User position: Latitude ${coords.latitude}, Longitude ${coords.longitude}`);
-
-        // Save geolocation data to localStorage
-        localStorage.setItem('latitude', coords.latitude);
-        localStorage.setItem('longitude', coords.longitude);
-
-        try {
-            clearScene();
-            scene.add(ambientLight);
-            renderer.render(scene, camera);
-        } catch (error) {
-            console.error('Error fetching map data:', error);
-        }
+        startRendering(coords); // Start rendering after getting user position
     })
     .catch(async (error) => {
         console.error('Error getting user position:', error);
-
-        // Fallback to saved address if geolocation fails
-        const savedAddress = localStorage.getItem('address');
-        if (savedAddress) {
-            console.log(`Using saved address: ${savedAddress}`);
-            try {
-                const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(savedAddress)}&format=json`);
-                const geocodeData = await geocodeResponse.json();
-
-                if (!geocodeData || geocodeData.length === 0) {
-                    console.error('Saved address not found. Please update the address.');
-                    return;
-                }
-
-                const latitude = parseFloat(geocodeData[0].lat);
-                const longitude = parseFloat(geocodeData[0].lon);
-
-                console.log(`Geocoded Address: Latitude ${latitude}, Longitude ${longitude}`);
-
-                const width = 500; // Smaller width for visualization
-                const height = 500; // Smaller height for visualization
-                //const mapData = await fetchMapData(latitude, longitude, width, height);
-
-                // Clear the scene before rendering new data
-                clearScene();
-                scene.add(plane);
-
-                // Render all map elements
-                renderAll(mapData, { latitude, longitude }, scene, cachedTreeModel);
-
-                scene.add(ambientLight);
-                scene.add(directionalLight);
-
-                // Refresh the view by rendering the scene
-                renderer.render(scene, camera);
-            } catch (geocodeError) {
-                console.error('Error using saved address:', geocodeError);
-            }
-        } else {
-            console.error('No saved address available. Please provide an address.');
-        }
     });
+    
 
 
 // Load the "Low Poly Tree.glb" model once and store its reference
@@ -269,26 +190,49 @@ fetchMapButton.addEventListener('click', async () => {
 
         console.log(`Geocoded Address: Latitude ${latitude}, Longitude ${longitude}`);
 
-        const width = 500; // Smaller width for visualization
-        const height = 500; // Smaller height for visualization
-        //const mapData = await fetchMapData(latitude, longitude, width, height);
-
-        // Clear the scene before rendering new data
-        clearScene();
-        scene.add(plane);
-
-        // Render all map elements
-        renderAll(mapData, { latitude, longitude }, scene, cachedTreeModel);
-
-        scene.add(ambientLight);
-        scene.add(directionalLight);
-
-        // Refresh the view by rendering the scene
-        renderer.render(scene, camera);
+        startRendering({ latitude, longitude }); // Start rendering with geocoded coordinates
     } catch (error) {
         console.error('Error fetching map data:', error);
     }
 });
+
+
+function getChunkCoordinates(position, chunkSize) {
+    var chunkOffset = chunkSize / 2;
+    const x = Math.floor((position.x + chunkOffset) / chunkSize);
+    const z = Math.floor((position.z + chunkOffset) / chunkSize);
+    return { x, z };
+}
+
+function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
+    const currentChunk = getChunkCoordinates(cameraPosition, chunkSize);
+    console.log(`Current Chunk: X: ${currentChunk.x}, Z: ${currentChunk.z}`);
+
+    // Load the current chunk if not already loaded
+    const chunkKey = `${currentChunk.x},${currentChunk.z}`;
+    if (!loadedChunks.has(chunkKey)) {
+        loadedChunks.add(chunkKey);
+        renderChunk(currentChunk.x, currentChunk.z, scene, chunkSize, referencePoint);
+    }
+}
+
+function startRendering(coords) {
+    clearScene(); // Clear the scene before rendering new chunks
+    loadedChunks.clear(); // Clear loaded chunks
+    startingPosition = coords; // Update starting position with geolocation data
+    // Save geolocation data to localStorage
+    localStorage.setItem('latitude', coords.latitude);
+    localStorage.setItem('longitude', coords.longitude);
+
+    try {
+        clearScene();
+        scene.add(ambientLight);
+        renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
+        renderer.render(scene, camera);
+    } catch (error) {
+        console.error('Error fetching map data:', error);
+    }
+}
 
 function loadModel(path, position, scene, callback) {
     const loader = new GLTFLoader();
@@ -417,10 +361,7 @@ function applyDrift() {
 function animate() {
     updateCameraPosition(); // Update the camera position based on controls
     applyDrift(); // Apply drift effect
-
-    // Check if the camera has moved to a new chunk
-    checkAndLoadChunks(camera.position, chunkSize, scene, { latitude: savedLatitude, longitude: savedLongitude });
-
+    checkAndLoadChunks(camera.position, chunkSize, scene, startingPosition);
     renderer.render(scene, camera); // Render the scene
 }
 

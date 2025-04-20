@@ -9,13 +9,19 @@ export function renderChunk(x, y, scene, chunkSize, referencePoint) {
 
     // calculate the lat and lon based on reference point
     const latOffset = (y * chunkSize) / 111320; // Approx. meters per degree latitude
-    const lonOffset = (x * chunkSize) / 111320 / Math.cos((referencePoint.latitude * Math.PI) / 180); // Adjust for longitude
-    const latitude = referencePoint.latitude + latOffset;
+    const lonOffset = (x * chunkSize) / 111320; // Adjust for longitude
+    const latitude = referencePoint.latitude - latOffset;
     const longitude = referencePoint.longitude + lonOffset;
 
     fetchMapData(latitude, longitude, chunkSize, chunkSize).then(data => {
         console.log(data);
-        renderAll(data, {longitude: longitude, latitude: latitude}, scene);
+        // For latitude and longitude, we need to convert them to meters - different for each axis
+
+        const offsetX = x * chunkSize; // Convert longitude to meters
+        const offsetY = y * chunkSize; // Convert latitude to meters and invert z-axis
+
+
+        renderAll(data, {latitude: latitude, longitude: longitude}, scene, {offsetX: offsetX, offsetY: offsetY});
         // add directional light above the chunk
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(x, 50, y); // Adjust the position as needed

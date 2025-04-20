@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 
-export function renderBuildings(buildings, coords, scene) {
+export function renderBuildings(buildings, coords, scene, offset) {
+    const offsetX = offset.offsetX;
+    const offsetY = offset.offsetY;
     buildings.forEach(building => {
         const vertices = building.vertices;
         const tags = building.tags;
@@ -17,10 +19,10 @@ export function renderBuildings(buildings, coords, scene) {
             const start = vertices[i];
             const end = vertices[i + 1];
 
-            const startX = (start.x - coords.longitude) * 111320;
-            const startZ = -(start.z - coords.latitude) * 111320;
-            const endX = (end.x - coords.longitude) * 111320;
-            const endZ = -(end.z - coords.latitude) * 111320;
+            const startX = ((start.x - coords.longitude) * 111320) + offsetX; // Apply offsetX
+            const startZ = -((start.z - coords.latitude) * 111320) + offsetY; // Apply offsetY
+            const endX = ((end.x - coords.longitude) * 111320) + offsetX;     // Apply offsetX
+            const endZ = -((end.z - coords.latitude) * 111320) + offsetY;     // Apply offsetY
 
             const dx = endX - startX;
             const dz = endZ - startZ;
@@ -43,7 +45,7 @@ export function renderBuildings(buildings, coords, scene) {
             const angle = Math.atan2(dz, dx);
             buildingMesh.rotation.y = -angle;
 
-            scene.add(buildingMesh);
+            //scene.add(buildingMesh);
         }
     });
 }

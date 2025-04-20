@@ -1,25 +1,26 @@
-export function getUserPosition() {
+export function getUserPosition(startingPosition) {
     return new Promise((resolve, reject) => {
-        const savedLatitude = localStorage.getItem('latitude');
-        const savedLongitude = localStorage.getItem('longitude');
+        // Try to get the user's position from navigator.geolocation
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                saveUserPosition(latitude, longitude);
+                resolve({ latitude : latitude, longitude : longitude });
+            },
+            (error) => {
+                const savedLatitude = localStorage.getItem('latitude');
+                const savedLongitude = localStorage.getItem('longitude');
 
-        if (savedLatitude && savedLongitude) {
-            resolve({
-                latitude: parseFloat(savedLatitude),
-                longitude: parseFloat(savedLongitude)
-            });
-        } else if (!navigator.geolocation) {
-            reject(new Error('Geolocation is not supported by your browser.'));
-        } else {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    saveUserPosition(latitude, longitude);
-                    resolve({ latitude, longitude });
-                },
-                (error) => reject(handleGeolocationError(error))
-            );
-        }
+                if (savedLatitude && savedLongitude && !isNaN(savedLatitude) && !isNaN(savedLongitude)) {
+                    resolve({
+                        latitude: parseFloat(savedLatitude),
+                        longitude: parseFloat(savedLongitude)
+                    });
+                } else {
+                    resolve(startingPosition);
+                }
+            }
+        );
     });
 }
 

@@ -104,10 +104,10 @@ function processMapData(data) {
     return { buildings, roads, naturals, waterways, airports };
 }
 
-export function renderAll(mapData, coords, scene, treeModel) {
-    renderRoads(mapData.roads, coords, scene);
-    renderBuildings(mapData.buildings, coords, scene);
-    renderNaturals(mapData.naturals, coords, scene, treeModel);
+export function renderAll(mapData, coords, scene, offset) {
+    renderRoads(mapData.roads, coords, scene, offset);
+    renderBuildings(mapData.buildings, coords, scene, offset);
+    renderNaturals(mapData.naturals, coords, scene);
     renderWaterways(mapData.waterways, coords, scene);
     renderAirport(mapData.airports, coords, scene);
 }
