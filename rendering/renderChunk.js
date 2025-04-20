@@ -37,6 +37,6 @@ function renderGround(x, y, chunkSize) {
     plane.position.x = (x * chunkSize);
     plane.position.z = (y * chunkSize);
 
-    plane.receiveShadow = true; // Enable receiving shadows
+    plane.receiveShadow = true; // Ensure the ground receives shadows
     return plane;
 }

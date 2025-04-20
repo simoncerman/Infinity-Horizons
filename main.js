@@ -59,20 +59,20 @@ const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increase ambient 
 scene.add(ambientLight);
 
 // TODO: Reimplement directional light for large scene with many chunks
-const directionalLight = new THREE.DirectionalLight(0xffffff, 3); // Increase directional light intensity
+const directionalLight = new THREE.DirectionalLight(0xffffff, 4); // Increase directional light intensity
 directionalLight.position.set(50, 50, 50); // Position the light
 directionalLight.castShadow = true; // Enable shadows
 
-
-// Configure shadow properties
+// Configure shadow properties for the directional light
+directionalLight.castShadow = true; // Ensure the light casts shadows
 directionalLight.shadow.mapSize.width = 2048; // Shadow map resolution
 directionalLight.shadow.mapSize.height = 2048;
 directionalLight.shadow.camera.near = 0.1;
 directionalLight.shadow.camera.far = 500;
-directionalLight.shadow.camera.left = 400;
-directionalLight.shadow.camera.right = 400;
-directionalLight.shadow.camera.top = 400;
-directionalLight.shadow.camera.bottom = -400;
+directionalLight.shadow.camera.left = -500; // Extend shadow camera bounds
+directionalLight.shadow.camera.right = 500;
+directionalLight.shadow.camera.top = 500;
+directionalLight.shadow.camera.bottom = -500;
 
 scene.add(directionalLight);
 
@@ -88,9 +88,10 @@ let cachedTreeModel = null; // Cache for the tree model
 let plane = null; // Reference to the plane model
 
 let airplaneSpeed = 0; // Current speed of the airplane
-const maxSpeed = 10; // Maximum speed
-const acceleration = 0.2; // Acceleration rate
-const deceleration = 0.1; // Deceleration rate
+const maxSpeed = 20; // Maximum speed
+const minSpeed = 0.1; // Minimum speed
+const acceleration = 0.5; // Acceleration rate
+const deceleration = 0.3; // Deceleration rate
 const rotationSpeed = Math.PI / 180 * 2; // Rotation speed (in radians)
 
 // Load the airplane model and add it to the scene
@@ -294,39 +295,23 @@ function updateAirplanePosition() {
     // Synchronize the camera's position with the airplane
     camera.position.set(
         cameraOffset.x + plane.position.x,
-        cameraOffset.y, // Set camera height to 0 for a top-down view
-        cameraOffset.z + plane.position.z,
+        cameraOffset.y + plane.position.y,
+        cameraOffset.z + plane.position.z
     );
     camera.lookAt(plane.position);
 }
 
-function updateDirectionalLightPosition() {
-    // Update the directional light's position relative to the airplane
-    if (plane) {
-        directionalLight.position.set(
-            plane.position.x + 50,
-            plane.position.y + 50,
-            plane.position.z + 50
-        );
-        directionalLight.target.position.copy(plane.position); // Ensure the light targets the airplane
-        directionalLight.target.updateMatrixWorld(); // Update the target's matrix
-    }
-}
-
 function handleKeyDown(event) {
-    if (event.key === 'w') airplaneSpeed = Math.min(airplaneSpeed + acceleration, maxSpeed); // Increase thrust
-    if (event.key === 's') airplaneSpeed = Math.max(airplaneSpeed - deceleration, 0); // Decrease thrust
-    if (event.key === 'ArrowLeft') plane.rotation.y += rotationSpeed; // Rotate left
-    if (event.key === 'ArrowRight') plane.rotation.y -= rotationSpeed; // Rotate right
-    if (event.key === 'ArrowUp') plane.rotation.x = Math.max(plane.rotation.x - rotationSpeed, -Math.PI / 4); // Pitch up
-    if (event.key === 'ArrowDown') plane.rotation.x = Math.min(plane.rotation.x + rotationSpeed, Math.PI / 4); // Pitch down
+    if (event.key === 'Shift') airplaneSpeed = Math.min(airplaneSpeed + acceleration, maxSpeed); // Increase speed
+    if (event.key === 'Control') airplaneSpeed = Math.max(airplaneSpeed - deceleration, minSpeed); // Decrease speed
+    if (event.key === 'ArrowLeft') plane.rotation.y += rotationSpeed; // Yaw left
+    if (event.key === 'ArrowRight') plane.rotation.y -= rotationSpeed; // Yaw right
+    if (event.key === 'ArrowUp') plane.rotation.x = Math.max(plane.rotation.x - rotationSpeed, -Math.PI / 6); // Pitch up
+    if (event.key === 'ArrowDown') plane.rotation.x = Math.min(plane.rotation.x + rotationSpeed, Math.PI / 6); // Pitch down
 }
 
 function handleKeyUp(event) {
-    if (event.key === 'w') controls.forward = false;
-    if (event.key === 's') controls.backward = false;
-    if (event.key === 'a') controls.left = false;
-    if (event.key === 'd') controls.right = false;
+    // No specific actions needed for key release in this implementation
 }
 
 function handleMouseDown(event) {
@@ -428,7 +413,6 @@ function updatePlanePosition() {
 
 function animate() {
     updateAirplanePosition(); // Update the airplane's position and rotation
-    updateDirectionalLightPosition(); // Update the directional light's position
     applyDrift(); // Apply drift effect
     scene.add(directionalLight); // Add directional light to the scene
     checkAndLoadChunks(camera.position, chunkSize, scene, startingPosition);
