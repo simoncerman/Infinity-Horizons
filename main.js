@@ -65,10 +65,10 @@ directionalLight.castShadow = true; // Enable shadows
 
 // Configure shadow properties for the directional light
 directionalLight.castShadow = true; // Ensure the light casts shadows
-directionalLight.shadow.mapSize.width = 2048; // Shadow map resolution
-directionalLight.shadow.mapSize.height = 2048;
+directionalLight.shadow.mapSize.width = 4096; // Increase shadow map resolution
+directionalLight.shadow.mapSize.height = 4096;
 directionalLight.shadow.camera.near = 0.1;
-directionalLight.shadow.camera.far = 500;
+directionalLight.shadow.camera.far = 1000; // Extend far plane for larger scenes
 directionalLight.shadow.camera.left = -500; // Extend shadow camera bounds
 directionalLight.shadow.camera.right = 500;
 directionalLight.shadow.camera.top = 500;
@@ -411,10 +411,23 @@ function updatePlanePosition() {
     plane.rotation.copy(camera.rotation); // Match the plane's rotation with the camera
 }
 
+// Function to dynamically update shadow camera bounds
+function updateShadowCameraBounds() {
+    const cameraPosition = camera.position;
+    directionalLight.position.set(
+        cameraPosition.x + 50,
+        cameraPosition.y + 50,
+        cameraPosition.z + 50
+    );
+    directionalLight.target.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    directionalLight.target.updateMatrixWorld(); // Ensure the target's matrix is updated
+}
+
 function animate() {
     updateAirplanePosition(); // Update the airplane's position and rotation
     applyDrift(); // Apply drift effect
-    scene.add(directionalLight); // Add directional light to the scene
+    updateShadowCameraBounds(); // Dynamically update shadow camera bounds
+    scene.add(directionalLight); // Add the directional light to the scene
     checkAndLoadChunks(camera.position, chunkSize, scene, startingPosition);
     renderer.render(scene, camera); // Render the scene
 }
