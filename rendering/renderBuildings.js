@@ -24,6 +24,9 @@ export function renderBuildings(buildings, coords, scene, offset) {
         if (tags.building === 'house') {
             height = 5; // Default height for houses
         }
+        if(tags.height != undefined) {
+            height = parseFloat(tags.height); // Use the specified height if available
+        }
 
         for (let i = 0; i < vertices.length - 1; i++) {
             const start = vertices[i];
@@ -47,6 +50,35 @@ export function renderBuildings(buildings, coords, scene, offset) {
             );
 
             instancedMesh.setMatrixAt(instanceIndex++, matrix);
+        }
+        // Roofs
+        if (vertices.length > 2) { // Ensure there are enough points to form a shape
+            const shape = new THREE.Shape();
+
+            // Add points to the shape
+            vertices.forEach((vertex, index) => {
+            const x = ((vertex.x - coords.longitude) * 111320) + offsetX;
+            const z = -((vertex.z - coords.latitude) * 111320) + offsetY;
+
+            if (index === 0) {
+                shape.moveTo(x, z);
+            } else {
+                shape.lineTo(x, z);
+            }
+            });
+
+            // Create geometry and material for the roof
+            const geometry = new THREE.ShapeGeometry(shape);
+            const material = new THREE.MeshStandardMaterial({ color: 0xd7d1c5, side: THREE.DoubleSide });
+            const mesh = new THREE.Mesh(geometry, material);
+
+            // Set the position of the roof to the top of the building
+            mesh.position.y = height; // Place the roof at the building's height
+
+            // Add the roof to the scene
+            mesh.rotation.x = Math.PI / 2; // Rotate to lie flat
+            mesh.receiveShadow = true; // Ensure the roof receives shadows
+            scene.add(mesh);
         }
     });
 
