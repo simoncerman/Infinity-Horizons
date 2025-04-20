@@ -49,23 +49,24 @@ largeCube.position.set(0, 0, 0); // Set large cube to the center of the scene
 scene.add(largeCube);
 
 // Add lighting to the scene
-const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); // Increase ambient light intensity
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increase ambient light intensity
 scene.add(ambientLight);
 
 // TODO: Reimplement directional light for large scene with many chunks
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // Increase directional light intensity
-directionalLight.position.set(50, 100, 50); // Position the light
+const directionalLight = new THREE.DirectionalLight(0xffffff, 3); // Increase directional light intensity
+directionalLight.position.set(50, 50, 50); // Position the light
 directionalLight.castShadow = true; // Enable shadows
+
 
 // Configure shadow properties
 directionalLight.shadow.mapSize.width = 2048; // Shadow map resolution
 directionalLight.shadow.mapSize.height = 2048;
 directionalLight.shadow.camera.near = 0.1;
 directionalLight.shadow.camera.far = 500;
-directionalLight.shadow.camera.left = -200;
-directionalLight.shadow.camera.right = 200;
-directionalLight.shadow.camera.top = 200;
-directionalLight.shadow.camera.bottom = -200;
+directionalLight.shadow.camera.left = 400;
+directionalLight.shadow.camera.right = 400;
+directionalLight.shadow.camera.top = 400;
+directionalLight.shadow.camera.bottom = -400;
 
 scene.add(directionalLight);
 
@@ -342,6 +343,13 @@ function updateCameraPosition() {
     //camera.rotation.x = controls.rotation.x;
     camera.rotation.y = controls.rotation.y;
     camera.rotation.z = controls.rotation.z;
+
+    // update direct light position
+    // update direction light left and right and up and down
+    directionalLight.shadow.camera.left = camera.position.x - 400;
+    directionalLight.shadow.camera.right = camera.position.x + 400;
+    directionalLight.shadow.camera.top = camera.position.z + 400;
+    directionalLight.shadow.camera.bottom = camera.position.z - 400;
 }
 
 function applyDrift() {
@@ -361,6 +369,8 @@ function applyDrift() {
 function animate() {
     updateCameraPosition(); // Update the camera position based on controls
     applyDrift(); // Apply drift effect
+    // add directional light to the scene
+    scene.add(directionalLight);
     checkAndLoadChunks(camera.position, chunkSize, scene, startingPosition);
     renderer.render(scene, camera); // Render the scene
 }

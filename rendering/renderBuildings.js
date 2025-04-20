@@ -45,7 +45,7 @@ export function renderBuildings(buildings, coords, scene, offset) {
             const angle = Math.atan2(dz, dx);
             buildingMesh.rotation.y = -angle;
 
-            //scene.add(buildingMesh);
+            scene.add(buildingMesh);
         }
     });
 }

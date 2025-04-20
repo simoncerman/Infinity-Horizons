@@ -20,15 +20,7 @@ export function renderChunk(x, y, scene, chunkSize, referencePoint) {
         const offsetX = x * chunkSize; // Convert longitude to meters
         const offsetY = y * chunkSize; // Convert latitude to meters and invert z-axis
 
-
-        renderAll(data, {latitude: latitude, longitude: longitude}, scene, {offsetX: offsetX, offsetY: offsetY});
-        // add directional light above the chunk
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(x, 50, y); // Adjust the position as needed
-        light.castShadow = true; // Enable shadow casting
-        light.shadow.mapSize.width = chunkSize; // Default
-        light.shadow.mapSize.height = chunkSize; // Default
-        scene.add(light);
+        renderAll(data, {latitude: latitude, longitude: longitude}, scene, {offsetX: offsetX, offsetY: offsetY});        
     });
 }
 
