@@ -5,15 +5,31 @@ export function renderRoads(roads, coords, scene, offset) {
     const offsetY = offset.offsetY;
     // Define road properties based on type
     const roadProperties = {
-        highway: { color: 0xD3D3D3, width: 3.5, height: 0.06, drawLines: true },
-        tertiary: { color: 0x616267, width: 7, height: 0.05, drawLines: true },
-        residential: { color: 0x616267, width: 6, height: 0.04 },
-        footway: { color: 0x8B4513, width: 1.5, height: 0.03 },
-        default: { color: 0x808080, width: 3, height: 0.02 } // Default properties for unknown types
+        highway: {width: 3.5, height: 0.06, drawLines: true },
+        tertiary: { width: 7, height: 0.05, drawLines: true },
+        residential: { width: 6, height: 0.04 },
+        footway: {width: 1.5, height: 0.03 },
+        default: {width: 3, height: 0.02 },
+        service: { width: 3, height: 0.02 },
+
     };
+
+    const surfaceTypes = {
+        asphalt: new THREE.MeshStandardMaterial({ color: 0x333333 }),
+        concrete: new THREE.MeshStandardMaterial({ color: 0xaaaaaa }),
+        gravel: new THREE.MeshStandardMaterial({ color: 0x888888 }),
+        dirt: new THREE.MeshStandardMaterial({ color: 0x7b5a29 }),
+        grass: new THREE.MeshStandardMaterial({ color: 0x4caf50 }),
+        sand: new THREE.MeshStandardMaterial({ color: 0xffc107 }),
+        paving_stones: new THREE.MeshStandardMaterial({ color: 0x9e9e9e })
+    };
+
+
 
     roads.forEach(road => {
         const properties = roadProperties[road.tags.highway] || roadProperties.default;
+        
+
         const points = road.path.map(vertex => new THREE.Vector3(
             ((vertex.x - coords.longitude) * 111320) + offsetX, // Apply offsetX
             0,                                                 // Place road at ground level
@@ -22,10 +38,14 @@ export function renderRoads(roads, coords, scene, offset) {
 
         // Create a smooth curve using CatmullRomCurve3
         const curve = new THREE.CatmullRomCurve3(points);
+        var width = properties.width; // Set width based on road type
+        if (road.tags.lanes !== undefined) {
+            width = road.tags.lanes * 3.5; // Override width if specified in tags
+        }
 
         // Define the road cross-section shape
         const roadShape = new THREE.Shape();
-        const halfWidth = properties.width / 2;
+        const halfWidth = width / 2;
         roadShape.moveTo(0, -halfWidth);
         roadShape.lineTo(0, halfWidth);
         roadShape.closePath();
@@ -39,14 +59,14 @@ export function renderRoads(roads, coords, scene, offset) {
             bevelSize: 1,
         };
         const roadGeometry = new THREE.ExtrudeGeometry(roadShape, extrudeSettings);
-        const roadMaterial = new THREE.MeshStandardMaterial({ color: properties.color });
+        const roadMaterial = surfaceTypes[road.tags.surface] || surfaceTypes.asphalt; // Use asphalt as default
         const roadMesh = new THREE.Mesh(roadGeometry, roadMaterial);
 
         // Enable shadows for roads
         roadMesh.castShadow = true;
         roadMesh.receiveShadow = true;
 
-        roadMesh.position.set(0, properties.height, 0); // Adjust height for the road
+        roadMesh.position.set(0, properties.height + 0.02, 0); // Adjust height for the road
 
         scene.add(roadMesh);
 
@@ -73,7 +93,7 @@ export function renderRoads(roads, coords, scene, offset) {
             // Enable shadows for road lines
             lineMesh.receiveShadow = true;
 
-            lineMesh.position.set(0, properties.height + 0.01, 0); // Adjust height for the line
+            lineMesh.position.set(0, properties.height + 0.03, 0); // Adjust height for the line
 
             scene.add(lineMesh);
         }

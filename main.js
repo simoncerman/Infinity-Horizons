@@ -238,6 +238,10 @@ function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
     // Load the current chunk if not already loaded
     const chunkKey = `${currentChunk.x},${currentChunk.z}`;
 
+    if (!loadedChunks.has(chunkKey)) {
+        loadedChunks.add(chunkKey);
+        renderChunk(currentChunk.x, currentChunk.z, scene, chunkSize, referencePoint);
+    }
     // If i get to border of chunk, load the next chunk. If i will be like 200 meters from the border, load the next chunk (use realPosition)
     if (Math.abs(realPosition.x - currentChunk.x * chunkSize) < chunkSize / 2) {
         const nextChunkX = currentChunk.x + (realPosition.x > currentChunk.x * chunkSize ? 1 : -1);
@@ -259,10 +263,6 @@ function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
 
 
 
-    if (!loadedChunks.has(chunkKey)) {
-        loadedChunks.add(chunkKey);
-        renderChunk(currentChunk.x, currentChunk.z, scene, chunkSize, referencePoint);
-    }
 }
 
 function startRendering(coords) {
