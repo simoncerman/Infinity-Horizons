@@ -228,11 +228,19 @@ function getChunkCoordinates(position, chunkSize) {
 }
 
 function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
-    const currentChunk = getChunkCoordinates(cameraPosition, chunkSize);
+    var realPosition = cameraPosition.clone();
+    realPosition.x -= cameraOffset.x; // Adjust for camera offset
+    realPosition.y -= cameraOffset.y; // Adjust for camera offset 
+    realPosition.z -= cameraOffset.z; // Adjust for camera offset
+    const currentChunk = getChunkCoordinates(realPosition, chunkSize);
     console.log(`Current Chunk: X: ${currentChunk.x}, Z: ${currentChunk.z}`);
 
     // Load the current chunk if not already loaded
     const chunkKey = `${currentChunk.x},${currentChunk.z}`;
+
+    // Find chunk that should be loaded (in view of the camera)
+
+
     if (!loadedChunks.has(chunkKey)) {
         loadedChunks.add(chunkKey);
         renderChunk(currentChunk.x, currentChunk.z, scene, chunkSize, referencePoint);
