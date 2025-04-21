@@ -1,65 +1,42 @@
+import { FlyingObject } from './FlyingObject.js';
 import * as THREE from 'three';
 
-export class Airplane {
-    constructor(scene, modelPath, initialPosition) {
-        this.scene = scene;
-        this.model = null;
-
-        // Movement and rotation properties
-        this.speed = 0;
-        this.maxSpeed = 20;
-        this.minSpeed = 0.1;
-        this.acceleration = 0.5;
-        this.deceleration = 0.3;
-
-        this.pitch = 0; // Rotation around the X-axis
-        this.yaw = 0;   // Rotation around the Y-axis
-        this.roll = 0;  // Rotation around the Z-axis
-
-        this.loadModel(modelPath, initialPosition);
+export class Airplane extends FlyingObject {
+    constructor(model) {
+        super(model);
     }
 
-    loadModel(modelPath, initialPosition) {
-        const loader = new THREE.GLTFLoader();
-        loader.load(
-            modelPath,
-            (gltf) => {
-                this.model = gltf.scene;
-                this.model.position.set(initialPosition.x, initialPosition.y, initialPosition.z);
-                this.model.scale.set(1, 1, 1); // Scale the model
-                this.scene.add(this.model);
-                console.log('Airplane model loaded:', modelPath);
-            },
-            undefined,
-            (error) => {
-                console.error('Error loading airplane model:', error);
-            }
-        );
-    }
+    update() {
 
-    updatePosition() {
-        if (!this.model) return;
-
-        // Calculate forward direction based on pitch and yaw
-        const direction = new THREE.Vector3(
-            Math.sin(this.yaw) * Math.cos(this.pitch),
-            Math.sin(this.pitch),
-            Math.cos(this.yaw) * Math.cos(this.pitch)
-        );
-
-        // Move the airplane forward based on its speed
-        this.model.position.addScaledVector(direction, this.speed);
-
-        // Apply rotations
-        this.model.rotation.set(this.pitch, this.yaw, this.roll);
-    }
-
-    increaseSpeed() {
-        this.speed = Math.min(this.speed + this.acceleration, this.maxSpeed);
-    }
-
-    decreaseSpeed() {
-        this.speed = Math.max(this.speed - this.deceleration, this.minSpeed);
+        // Use renamed boolean properties to determine the next step
+        if (this.isPitchUp) {
+            this.pitchUp(0.1);
+        } else if (this.isPitchDown) {
+            this.pitchDown(0.1);
+        }
+        if (this.isYawLeft) {
+            this.yawLeft(0.1);
+        } else if (this.isYawRight) {
+            this.yawRight(0.1);
+        }
+        if (this.isRollLeft) {
+            this.rollLeft(0.1);
+        } else if (this.isRollRight) {
+            this.rollRight(0.1);
+        }
+        if (this.isTrust) {
+            console.log('trust', this.isTrust);
+            this.increaseSpeed();
+        } else if (this.isReverseTrust) {
+            this.decreaseSpeed();
+        }
+        this.model.position.x += Math.sin(this.yaw) * this.speed;
+        this.model.position.y += Math.sin(this.pitch) * this.speed;
+        this.model.position.z += Math.cos(this.yaw) * this.speed;
+        this.model.rotation.x = this.pitch;
+        this.model.rotation.y = this.yaw;
+        this.model.rotation.z = this.roll;
+        this.model.updateMatrixWorld(); // Update the model's matrix world to reflect the new position and rotation
     }
 
     pitchUp(rotationSpeed) {
@@ -84,5 +61,13 @@ export class Airplane {
 
     rollRight(rotationSpeed) {
         this.roll = Math.min(this.roll + rotationSpeed, Math.PI / 4);
+    }
+
+    increaseSpeed() {
+        this.speed += 0.001; // Adjust the speed increment as needed
+    }
+
+    decreaseSpeed() {
+        this.speed -= 0.001; // Adjust the speed decrement as needed
     }
 }

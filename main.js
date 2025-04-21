@@ -3,11 +3,13 @@ import { getUserPosition } from './geolocation.js';
 import { fetchMapData,renderAll } from './mapApi.js';
 import { renderChunk } from './rendering/renderChunk.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {Camera} from './classes/Camera.js';
+import { DirectLight } from './classes/DirectLight.js';
+import { Airplane } from './classes/Airplane.js';
 
 const chunkSize = 500; // Size of each chunk in meters
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -16,112 +18,77 @@ renderer.shadowMap.enabled = true; // Enable shadows in the renderer
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 document.body.appendChild(renderer.domElement);
 
-// camera offset from central point
-const cameraOffset = {
-    x: 0,
-    y: 100,
-    z: 125
-};
 
-camera.position.z = cameraOffset.z; 
-camera.position.y = cameraOffset.y; 
-camera.position.x = cameraOffset.x; 
+let camera = new Camera(
+    new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
+);
+let cameraOffset = camera.getCameraOffset(); // Get the camera offset
 
-// Set fov
-camera.fov = 40; // Set field of view to 40 degrees
-camera.rotation.x = -Math.PI / 180 * 50; // Rotate camera 75 degrees downward
 
-camera.updateProjectionMatrix(); // Ensure the projection matrix is updated
-
-//TODO: Rework camera rotations
-
-let controls = {
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    dragging: false,
-    dragStart: { x: 0, y: 0 },
-    realRotation: { x: 0, y: 0},
-    rotation: { x: -Math.PI / 4, y: 0, z: 0}, // Initial rotation
-};
-let yaw = 0;
-let pitch = 0;
+// let controls = {
+//     forward: false,
+//     backward: false,
+//     left: false,
+//     right: false,
+//     dragging: false,
+//     dragStart: { x: 0, y: 0 },
+//     realRotation: { x: 0, y: 0},
+//     rotation: { x: -Math.PI / 4, y: 0, z: 0}, // Initial rotation
+// };
 
 const largeCubeGeometry = new THREE.BoxGeometry(10, 10, 10); // Large cube dimensions
 const largeCubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for the large cube
 const largeCube = new THREE.Mesh(largeCubeGeometry, largeCubeMaterial);
 largeCube.position.set(0, 0, 0); // Set large cube to the center of the scene
+largeCube.castShadow = true; // Example object casts shadows
 scene.add(largeCube);
 
 // Add lighting to the scene
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increase ambient light intensity
 scene.add(ambientLight);
-
-// TODO: Reimplement directional light for large scene with many chunks
-const directionalLight = new THREE.DirectionalLight(0xffffff, 4); // Increase directional light intensity
-directionalLight.position.set(50, 50, 50); // Position the light
-directionalLight.castShadow = true; // Enable shadows
-
-// Configure shadow properties for the directional light
-directionalLight.castShadow = true; // Ensure the light casts shadows
-directionalLight.shadow.mapSize.width = 4096; // Increase shadow map resolution
-directionalLight.shadow.mapSize.height = 4096;
-directionalLight.shadow.camera.near = 0.1;
-directionalLight.shadow.camera.far = 1000; // Extend far plane for larger scenes
-directionalLight.shadow.camera.left = -500; // Extend shadow camera bounds
-directionalLight.shadow.camera.right = 500;
-directionalLight.shadow.camera.top = 500;
-directionalLight.shadow.camera.bottom = -500;
-
+let directionalLight = new DirectLight().getLight(); // Create a new instance of DirectLight
 scene.add(directionalLight);
 
 // Ensure shadows are enabled in the renderer
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 
-largeCube.castShadow = true; // Example object casts shadows
 
-let treeModel = null; // Reference to the tree model
-let cachedTreeModel = null; // Cache for the tree model
+let flyingObject = null; // Reference to the plane model
 
-let plane = null; // Reference to the plane model
-
-let airplaneSpeed = 0; // Current speed of the airplane
-const maxSpeed = 20; // Maximum speed
-const minSpeed = 0; // Minimum speed
-const acceleration = 0.5; // Acceleration rate
-const deceleration = 0.3; // Deceleration rate
-const rotationSpeed = Math.PI / 180 * 2; // Rotation speed (in radians)
-
-// Load the airplane model and add it to the scene
-loadModel('/models/Plane.glb', { x: 0, y: 20, z: 0 }, scene, (model) => {
-    plane = model;
-    plane.scale.set(1, 1, 1); // Scale the plane model
-    console.log('Plane model added to the scene at (0, 20, 0)');
-});
-
-let drift = { x: 0, z: 0 }; // Drift velocity
-const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
+let planeModel = null; // Reference to the planeModel model
 
 const loadedChunks = new Set(); // Keep track of already loaded chunks
-
 let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Default starting position
 
-getUserPosition(startingPosition)
-    .then(async (coords) => {
-        startRendering(coords); // Start rendering after getting user position
-    })
-    .catch(async (error) => {
-        console.error('Error getting user position:', error);
-    });
+
+
+(async () => {
+    planeModel = await loadModelSync('/models/Plane.glb', { x: 0, y: 20, z: 0 }, scene);
+    planeModel.scale.set(1, 1, 1); // Scale the plane model
     
+    let airPlane = new Airplane(planeModel);
 
 
-// Load the "Low Poly Tree.glb" model once and store its reference
-loadModel('/models/Low Poly Tree.glb', { x: 50, y: 0, z: 0 }, scene, (model) => {
-    treeModel = model;
-});
+    let helicopter = null; // Reference to the helicopter model
+
+    flyingObject = airPlane;
+    
+    
+    let drift = { x: 0, z: 0 }; // Drift velocity
+    const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
+    
+    
+    getUserPosition(startingPosition)
+        .then(async (coords) => {
+            startRendering(coords); // Start rendering after getting user position
+        })
+        .catch(async (error) => {
+            console.error('Error getting user position:', error);
+        });
+        
+})();
+
 
 // Admin panel controls
 const fovInput = document.getElementById('fov');
@@ -136,32 +103,32 @@ const lightYInput = document.getElementById('lightY');
 const lightZInput = document.getElementById('lightZ');
 
 fovInput.addEventListener('input', () => {
-    camera.fov = parseFloat(fovInput.value);
-    camera.updateProjectionMatrix();
+    camera.getCamera().fov = parseFloat(fovInput.value);
+    camera.getCamera().updateProjectionMatrix();
 });
 
 posXInput.addEventListener('input', () => {
-    camera.position.x = parseFloat(posXInput.value);
+    camera.getCamera().position.x = parseFloat(posXInput.value);
 });
 
 posYInput.addEventListener('input', () => {
-    camera.position.y = parseFloat(posYInput.value);
+    camera.getCamera().position.y = parseFloat(posYInput.value);
 });
 
 posZInput.addEventListener('input', () => {
-    camera.position.z = parseFloat(posZInput.value);
+    camera.getCamera().position.z = parseFloat(posZInput.value);
 });
 
 rotXInput.addEventListener('input', () => {
-    //camera.rotation.x = parseFloat(rotXInput.value) * (Math.PI / 180);
+    //camera.getCamera().rotation.x = parseFloat(rotXInput.value) * (Math.PI / 180);
 });
 
 rotYInput.addEventListener('input', () => {
-    camera.rotation.y = parseFloat(rotYInput.value) * (Math.PI / 180);
+    camera.getCamera().rotation.y = parseFloat(rotYInput.value) * (Math.PI / 180);
 });
 
 rotZInput.addEventListener('input', () => {
-    camera.rotation.z = parseFloat(rotZInput.value) * (Math.PI / 180);
+    camera.getCamera().rotation.z = parseFloat(rotZInput.value) * (Math.PI / 180);
 });
 
 lightXInput.addEventListener('input', () => {
@@ -277,7 +244,7 @@ function startRendering(coords) {
         clearScene();
         scene.add(ambientLight);
         renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
-        renderer.render(scene, camera);
+        renderer.render(scene, camera.getCamera()); // Initial render
     } catch (error) {
         console.error('Error fetching map data:', error);
     }
@@ -310,6 +277,33 @@ function loadModel(path, position, scene, callback) {
     );
 }
 
+async function loadModelSync(path, position, scene) {
+    const loader = new GLTFLoader();
+    return new Promise((resolve, reject) => {
+        loader.load(
+            path,
+            (gltf) => {
+                const model = gltf.scene;
+                model.position.set(position.x, position.y, position.z);
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true; // Enable shadows for model meshes
+                        child.receiveShadow = true; // Enable receiving shadows
+                    }
+                });
+                scene.add(model);
+                console.log(`Model loaded from ${path}`);
+                resolve(model);
+            },
+            undefined,
+            (error) => {
+                console.error(`Error loading model from ${path}:`, error);
+                reject(error);
+            }
+        );
+    });
+}
+
 // Enable frustum culling for all objects in the scene
 scene.traverse((object) => {
     if (object.isMesh) {
@@ -318,64 +312,72 @@ scene.traverse((object) => {
 });
 
 function updateAirplanePosition() {
-    if (!plane) return;
+    if (!flyingObject) return;
 
-    // Move the airplane forward based on its speed
-    const direction = new THREE.Vector3();
-    plane.getWorldDirection(direction);
-    plane.position.addScaledVector(direction, airplaneSpeed);
+    flyingObject.update(); 
+    scene.add(flyingObject.getModel()); // Add the airplane model to the scene
 
     // Synchronize the camera's position with the airplane
-    camera.position.set(
-        cameraOffset.x + plane.position.x,
-        cameraOffset.y + plane.position.y,
-        cameraOffset.z + plane.position.z
+    camera.getCamera().position.set(
+        cameraOffset.x + flyingObject.getPosX(),
+        cameraOffset.y + flyingObject.getPosY(),
+        cameraOffset.z + flyingObject.getPosZ()
     );
-    camera.lookAt(plane.position);
+    camera.getCamera().lookAt(flyingObject.getPos());
 }
 
 function handleKeyDown(event) {
-    if (event.key === 'Shift') airplaneSpeed = Math.min(airplaneSpeed + acceleration, maxSpeed); // Increase speed
-    if (event.key === 'Control') airplaneSpeed = Math.max(airplaneSpeed - deceleration, minSpeed); // Decrease speed
-    if (event.key === 'ArrowLeft') plane.rotation.y += rotationSpeed; // Yaw left
-    if (event.key === 'ArrowRight') plane.rotation.y -= rotationSpeed; // Yaw right
-    if (event.key === 'ArrowUp') plane.rotation.x = Math.max(plane.rotation.x - rotationSpeed, -Math.PI / 6); // Pitch up
-    if (event.key === 'ArrowDown') plane.rotation.x = Math.min(plane.rotation.x + rotationSpeed, Math.PI / 6); // Pitch down
+    // Arrow down is pitchDown true, Arrow up is pitchUp true. W is trust true, S is reverseTrust true, Q is yawRight true, E is yawLeft true, Rightarrow is rollRight true, LeftArrow is rollLeft true
+    if (event.key === 'ArrowDown') flyingObject.isPitchDown = true;
+    if (event.key === 'ArrowUp') flyingObject.isPitchUp = true;
+    if (event.key === 'w') flyingObject.isTrust = true;
+    if (event.key === 's') flyingObject.isReverseTrust = true;
+    if (event.key === 'q') flyingObject.isYawLeft = true;
+    if (event.key === 'e') flyingObject.isYawRight = true;
+    if (event.key === 'ArrowRight') flyingObject.isRollRight = true;
+    if (event.key === 'ArrowLeft') flyingObject.isRollLeft = true;
 }
 
 function handleKeyUp(event) {
-    // No specific actions needed for key release in this implementation
+    // Arrow down is pitchDown false, Arrow up is pitchUp false. W is trust false, S is reverseTrust false, Q is yawRight false, E is yawLeft false, RightArrow is rollRight false, LeftArrow is rollLeft false
+    if (event.key === 'ArrowDown') flyingObject.isPitchDown = false;
+    if (event.key === 'ArrowUp') flyingObject.isPitchUp = false;
+    if (event.key === 'w') flyingObject.isTrust = false;
+    if (event.key === 's') flyingObject.isReverseTrust = false;
+    if (event.key === 'q') flyingObject.isYawLeft = false;
+    if (event.key === 'e') flyingObject.isYawRight = false;
+    if (event.key === 'ArrowRight') flyingObject.isRollRight = false;
+    if (event.key === 'ArrowLeft') flyingObject.isRollLeft = false;
 }
 
 function handleMouseDown(event) {
-    controls.dragging = true;
-    controls.dragStart.x = event.clientX;
-    controls.dragStart.y = event.clientY;
-    drift.x = 0; // Reset drift when dragging starts
-    drift.z = 0;
+    // controls.dragging = true;
+    // controls.dragStart.x = event.clientX;
+    // controls.dragStart.y = event.clientY;
+    // drift.x = 0; // Reset drift when dragging starts
+    // drift.z = 0;
 }
 
 function handleMouseMove(event) {
-    if (controls.dragging) {
-        // It will update the position of the camera, the rotation will be 45 in x and 45 in y
-        const deltaX = event.clientX - controls.dragStart.x;
-        const deltaY = event.clientY - controls.dragStart.y;
-        camera.position.x -= deltaX * 0.07; // Adjust the multiplier for sensitivity
-        camera.position.z -= deltaY * 0.07; // Adjust the multiplier for sensitivity
-        //camera.rotation.x = controls.rotation.x;
-        camera.rotation.y = controls.rotation.y;
-        camera.rotation.z = controls.rotation.z;
+    // if (controls.dragging) {
+    //     // It will update the position of the camera, the rotation will be 45 in x and 45 in y
+    //     const deltaX = event.clientX - controls.dragStart.x;
+    //     const deltaY = event.clientY - controls.dragStart.y;
+    //     camera.position.x -= deltaX * 0.07; // Adjust the multiplier for sensitivity
+    //     camera.position.z -= deltaY * 0.07; // Adjust the multiplier for sensitivity
+    //     //camera.rotation.x = controls.rotation.x;
+    //     camera.rotation.y = controls.rotation.y;
+    //     camera.rotation.z = controls.rotation.z;
 
-        drift.x = deltaX * 0.07; // Update drift velocity
-        drift.z = deltaY * 0.07;
+    //     drift.x = deltaX * 0.07; // Update drift velocity
+    //     drift.z = deltaY * 0.07;
 
-        controls.dragStart.x = event.clientX; // Update drag start position
-        controls.dragStart.y = event.clientY;
-    }
+    //     controls.dragStart.x = event.clientX; // Update drag start position
+    //     controls.dragStart.y = event.clientY;
+    // }
 }
 
 function handleMouseUp() {
-    controls.dragging = false;
 }
 
 function handleScroll(event) {
@@ -423,17 +425,17 @@ function updateCameraPosition() {
 }
 
 function applyDrift() {
-    if (!controls.dragging) {
-        camera.position.x -= drift.x;
-        camera.position.z -= drift.z;
+    // if (!controls.dragging) {
+    //     camera.position.x -= drift.x;
+    //     camera.position.z -= drift.z;
 
-        drift.x *= driftDecay; // Apply decay to drift
-        drift.z *= driftDecay;
+    //     drift.x *= driftDecay; // Apply decay to drift
+    //     drift.z *= driftDecay;
 
-        // Stop drift when it's very small
-        if (Math.abs(drift.x) < 0.001) drift.x = 0;
-        if (Math.abs(drift.z) < 0.001) drift.z = 0;
-    }
+    //     // Stop drift when it's very small
+    //     if (Math.abs(drift.x) < 0.001) drift.x = 0;
+    //     if (Math.abs(drift.z) < 0.001) drift.z = 0;
+    // }
 }
 
 function updatePlanePosition() {
@@ -446,7 +448,7 @@ function updatePlanePosition() {
 
 // Function to dynamically update shadow camera bounds
 function updateShadowCameraBounds() {
-    const cameraPosition = camera.position;
+    const cameraPosition = camera.getCamera().position;
     directionalLight.position.set(
         cameraPosition.x + 50,
         cameraPosition.y + 50,
@@ -461,8 +463,8 @@ function animate() {
     applyDrift(); // Apply drift effect
     updateShadowCameraBounds(); // Dynamically update shadow camera bounds
     scene.add(directionalLight); // Add the directional light to the scene
-    checkAndLoadChunks(camera.position, chunkSize, scene, startingPosition);
-    renderer.render(scene, camera); // Render the scene
+    checkAndLoadChunks(camera.getCamera().position, chunkSize, scene, startingPosition);
+    renderer.render(scene, camera.getCamera()); // Render the scene
 }
 
 
