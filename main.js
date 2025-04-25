@@ -69,59 +69,6 @@ let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Defau
         });
 })();
 
-// Admin panel controls
-const fovInput = document.getElementById('fov');
-const posXInput = document.getElementById('posX');
-const posYInput = document.getElementById('posY');
-const posZInput = document.getElementById('posZ');
-const rotXInput = document.getElementById('rotX');
-const rotYInput = document.getElementById('rotY');
-const rotZInput = document.getElementById('rotZ');
-const lightXInput = document.getElementById('lightX');
-const lightYInput = document.getElementById('lightY');
-const lightZInput = document.getElementById('lightZ');
-
-fovInput.addEventListener('input', () => {
-    camera.getCamera().fov = parseFloat(fovInput.value);
-    camera.getCamera().updateProjectionMatrix();
-});
-
-posXInput.addEventListener('input', () => {
-    camera.getCamera().position.x = parseFloat(posXInput.value);
-});
-
-posYInput.addEventListener('input', () => {
-    camera.getCamera().position.y = parseFloat(posYInput.value);
-});
-
-posZInput.addEventListener('input', () => {
-    camera.getCamera().position.z = parseFloat(posZInput.value);
-});
-
-rotXInput.addEventListener('input', () => {
-    //camera.getCamera().rotation.x = parseFloat(rotXInput.value) * (Math.PI / 180);
-});
-
-rotYInput.addEventListener('input', () => {
-    camera.getCamera().rotation.y = parseFloat(rotYInput.value) * (Math.PI / 180);
-});
-
-rotZInput.addEventListener('input', () => {
-    camera.getCamera().rotation.z = parseFloat(rotZInput.value) * (Math.PI / 180);
-});
-
-lightXInput.addEventListener('input', () => {
-    directionalLight.position.x = parseFloat(lightXInput.value);
-});
-
-lightYInput.addEventListener('input', () => {
-    directionalLight.position.y = parseFloat(lightYInput.value);
-});
-
-lightZInput.addEventListener('input', () => {
-    directionalLight.position.z = parseFloat(lightZInput.value);
-});
-
 // User info panel elements
 const gpsIcon = document.getElementById('gps-icon');
 const addressInput = document.getElementById('address-input');
@@ -147,13 +94,21 @@ addressInput.addEventListener('focus', () => {
 const loadingScreen = document.getElementById('loading-screen');
 
 document.getElementById('play-button').addEventListener('click', async () => {
+    console.log('Play button clicked');
     const welcomeScreen = document.getElementById('welcome-screen');
     let coords;
 
     loadingScreen.classList.add('visible'); // Show loading screen
 
     if (useGPS) {
-        coords = await getUserPosition(startingPosition);
+        try {
+            coords = await getUserPosition(startingPosition);
+        } catch (error) {
+            console.error('Error getting GPS location:', error);
+            alert('Failed to get GPS location. Please try again.');
+            loadingScreen.classList.remove('visible'); // Hide loading screen
+            return;
+        }
     } else {
         const address = addressInput.value.trim();
         if (!address) {
@@ -191,6 +146,46 @@ document.getElementById('play-button').addEventListener('click', async () => {
         startRendering(coords); // Start the game with the selected coordinates
         loadingScreen.classList.remove('visible'); // Hide loading screen
     }, 1000); // Match the duration of the fade-out animation
+});
+
+document.getElementById('fetch-map').addEventListener('click', async () => {
+    console.log('Fetch button clicked');
+    let coords;
+
+    loadingScreen.classList.add('visible'); // Show loading screen
+
+    const address = document.getElementById('address').value.trim();
+    if (!address) {
+        alert('Please enter a valid address.');
+        loadingScreen.classList.remove('visible'); // Hide loading screen
+        return;
+    }
+
+    try {
+        const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`);
+        const geocodeData = await geocodeResponse.json();
+
+        if (!geocodeData || geocodeData.length === 0) {
+            alert('Address not found. Please try a different address.');
+            loadingScreen.classList.remove('visible'); // Hide loading screen
+            return;
+        }
+
+        coords = {
+            latitude: parseFloat(geocodeData[0].lat),
+            longitude: parseFloat(geocodeData[0].lon)
+        };
+    } catch (error) {
+        console.error('Error fetching map data:', error);
+        alert('Failed to fetch address coordinates. Please try again.');
+        loadingScreen.classList.remove('visible'); // Hide loading screen
+        return;
+    }
+
+    // Clear the current scene and start rendering with new coordinates
+    scene = new THREE.Scene(); // Clear the scene
+    startRendering(coords); // Start rendering with new coordinates
+    loadingScreen.classList.remove('visible'); // Hide loading screen
 });
 
 function getChunkCoordinates(position, chunkSize) {
