@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { getUserPosition } from './geolocation.js';
-import { fetchMapData,renderAll } from './mapApi.js';
+import { fetchMapData, renderAll } from './mapApi.js';
 import { renderChunk } from './rendering/renderChunk.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import {Camera} from './classes/Camera.js';
+import { Camera } from './classes/Camera.js';
 import { DirectLight } from './classes/DirectLight.js';
 import { Airplane } from './classes/Airplane.js';
 
@@ -18,23 +18,10 @@ renderer.shadowMap.enabled = true; // Enable shadows in the renderer
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 document.body.appendChild(renderer.domElement);
 
-
 let camera = new Camera(
     new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
 );
 let cameraOffset = camera.getCameraOffset(); // Get the camera offset
-
-
-// let controls = {
-//     forward: false,
-//     backward: false,
-//     left: false,
-//     right: false,
-//     dragging: false,
-//     dragStart: { x: 0, y: 0 },
-//     realRotation: { x: 0, y: 0},
-//     rotation: { x: -Math.PI / 4, y: 0, z: 0}, // Initial rotation
-// };
 
 const largeCubeGeometry = new THREE.BoxGeometry(10, 10, 10); // Large cube dimensions
 const largeCubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for the large cube
@@ -53,7 +40,6 @@ scene.add(directionalLight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 
-
 let flyingObject = null; // Reference to the plane model
 
 let planeModel = null; // Reference to the planeModel model
@@ -61,24 +47,19 @@ let planeModel = null; // Reference to the planeModel model
 const loadedChunks = new Set(); // Keep track of already loaded chunks
 let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Default starting position
 
-
-
 (async () => {
     planeModel = await loadModelSync('/models/Plane.glb', { x: 0, y: 20, z: 0 }, scene);
     planeModel.scale.set(1, 1, 1); // Scale the plane model
-    
-    let airPlane = new Airplane(planeModel);
 
+    let airPlane = new Airplane(planeModel);
 
     let helicopter = null; // Reference to the helicopter model
 
     flyingObject = airPlane;
-    
-    
+
     let drift = { x: 0, z: 0 }; // Drift velocity
     const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
-    
-    
+
     getUserPosition(startingPosition)
         .then(async (coords) => {
             startRendering(coords); // Start rendering after getting user position
@@ -86,9 +67,7 @@ let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Defau
         .catch(async (error) => {
             console.error('Error getting user position:', error);
         });
-        
 })();
-
 
 // Admin panel controls
 const fovInput = document.getElementById('fov');
@@ -144,48 +123,74 @@ lightZInput.addEventListener('input', () => {
 });
 
 // User info panel elements
-const addressInput = document.getElementById('address');
-const fetchMapButton = document.getElementById('fetch-map');
+const gpsIcon = document.getElementById('gps-icon');
+const addressInput = document.getElementById('address-input');
+let useGPS = true; // Default to GPS
 
-// Load saved address from localStorage
-const savedAddress = localStorage.getItem('address');
-if (savedAddress) {
-    addressInput.value = savedAddress;
-}
+gpsIcon.addEventListener('click', () => {
+    useGPS = true;
+    addressInput.value = ''; // Clear address input
+    gpsIcon.style.background = 'white';
+    gpsIcon.style.color = 'black';
+    addressInput.style.background = 'transparent';
+    addressInput.style.color = 'white';
+});
 
-fetchMapButton.addEventListener('click', async () => {
-    const address = addressInput.value.trim();
+addressInput.addEventListener('focus', () => {
+    useGPS = false;
+    gpsIcon.style.background = 'transparent';
+    gpsIcon.style.color = 'white';
+    addressInput.style.background = 'white';
+    addressInput.style.color = 'black';
+});
 
-    if (!address) {
-        alert('Please enter a valid address.');
-        return;
-    }
+const loadingScreen = document.getElementById('loading-screen');
 
-    // Save the address to localStorage
-    localStorage.setItem('address', address);
+document.getElementById('play-button').addEventListener('click', async () => {
+    const welcomeScreen = document.getElementById('welcome-screen');
+    let coords;
 
-    console.log(`Fetching map data for Address: ${address}`);
-    try {
-        // Convert address to latitude and longitude using a geocoding API
-        const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`);
-        const geocodeData = await geocodeResponse.json();
+    loadingScreen.classList.add('visible'); // Show loading screen
 
-        if (!geocodeData || geocodeData.length === 0) {
-            alert('Address not found. Please try a different address.');
+    if (useGPS) {
+        coords = await getUserPosition(startingPosition);
+    } else {
+        const address = addressInput.value.trim();
+        if (!address) {
+            alert('Please enter a valid address.');
+            loadingScreen.classList.remove('visible'); // Hide loading screen
             return;
         }
 
-        const latitude = parseFloat(geocodeData[0].lat);
-        const longitude = parseFloat(geocodeData[0].lon);
+        try {
+            const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`);
+            const geocodeData = await geocodeResponse.json();
 
-        console.log(`Geocoded Address: Latitude ${latitude}, Longitude ${longitude}`);
+            if (!geocodeData || geocodeData.length === 0) {
+                alert('Address not found. Please try a different address.');
+                loadingScreen.classList.remove('visible'); // Hide loading screen
+                return;
+            }
 
-        startRendering({ latitude, longitude }); // Start rendering with geocoded coordinates
-    } catch (error) {
-        console.error('Error fetching map data:', error);
+            coords = {
+                latitude: parseFloat(geocodeData[0].lat),
+                longitude: parseFloat(geocodeData[0].lon)
+            };
+        } catch (error) {
+            console.error('Error fetching map data:', error);
+            alert('Failed to fetch address coordinates. Please try again.');
+            loadingScreen.classList.remove('visible'); // Hide loading screen
+            return;
+        }
     }
-});
 
+    welcomeScreen.classList.add('hidden'); // Add the hidden class to trigger fade-out
+    setTimeout(() => {
+        welcomeScreen.style.display = 'none'; // Remove the welcome screen after animation
+        startRendering(coords); // Start the game with the selected coordinates
+        loadingScreen.classList.remove('visible'); // Hide loading screen
+    }, 1000); // Match the duration of the fade-out animation
+});
 
 function getChunkCoordinates(position, chunkSize) {
     var chunkOffset = chunkSize / 2;
@@ -197,7 +202,7 @@ function getChunkCoordinates(position, chunkSize) {
 function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
     var realPosition = cameraPosition.clone();
     realPosition.x -= cameraOffset.x; // Adjust for camera offset
-    realPosition.y -= cameraOffset.y; // Adjust for camera offset 
+    realPosition.y -= cameraOffset.y; // Adjust for camera offset
     realPosition.z -= cameraOffset.z; // Adjust for camera offset
     const currentChunk = getChunkCoordinates(realPosition, chunkSize);
     console.log(`Current Chunk: X: ${currentChunk.x}, Z: ${currentChunk.z}`);
@@ -227,9 +232,6 @@ function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
         }
     }
     // Load the current chunk if not already loaded
-
-
-
 }
 
 function startRendering(coords) {
@@ -314,7 +316,7 @@ scene.traverse((object) => {
 function updateAirplanePosition() {
     if (!flyingObject) return;
 
-    flyingObject.update(); 
+    flyingObject.update();
     scene.add(flyingObject.getModel()); // Add the airplane model to the scene
 
     // Synchronize the camera's position with the airplane
@@ -377,8 +379,7 @@ function handleMouseMove(event) {
     // }
 }
 
-function handleMouseUp() {
-}
+function handleMouseUp() {}
 
 function handleScroll(event) {
     const scrollSpeed = 1; // Adjust the multiplier for sensitivity
@@ -392,7 +393,6 @@ function handleScroll(event) {
     const normalizedHeight = Math.min(1, (camera.position.y - 5) / heightRange); // Normalize height between 0 and 1
     camera.rotation.x = minAngle + normalizedHeight * (maxAngle - minAngle); // Interpolate between minAngle and maxAngle
 }
-
 
 function updateCameraPosition() {
     const speed = 4; // Increased speed (4x faster)
@@ -467,9 +467,8 @@ function animate() {
     renderer.render(scene, camera.getCamera()); // Render the scene
 }
 
-
 function clearScene() {
-    while (scene.children.length > 1) { // Keep the large cube in the scene
+    while (scene.children.length > 1) {
         scene.remove(scene.children[1]);
     }
 }
