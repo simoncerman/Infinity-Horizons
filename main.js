@@ -7,9 +7,9 @@ import { Camera } from './classes/Camera.js';
 import { DirectLight } from './classes/DirectLight.js';
 import { Airplane } from './classes/Airplane.js';
 
-const chunkSize = 500; // Size of each chunk in meters
+const chunkSize = 1000; // Size of each chunk in meters
 
-const scene = new THREE.Scene();
+let scene = new THREE.Scene();
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -187,6 +187,7 @@ document.getElementById('play-button').addEventListener('click', async () => {
     welcomeScreen.classList.add('hidden'); // Add the hidden class to trigger fade-out
     setTimeout(() => {
         welcomeScreen.style.display = 'none'; // Remove the welcome screen after animation
+        scene = new THREE.Scene(); // Clear the scene
         startRendering(coords); // Start the game with the selected coordinates
         loadingScreen.classList.remove('visible'); // Hide loading screen
     }, 1000); // Match the duration of the fade-out animation
