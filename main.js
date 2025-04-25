@@ -182,6 +182,15 @@ document.getElementById('fetch-map').addEventListener('click', async () => {
         return;
     }
 
+    // Reset the plane's position
+    if (flyingObject) {
+        flyingObject.getModel().position.set(0, 20, 0); // Reset to initial position
+        flyingObject.pitch = 0;
+        flyingObject.yaw = 0;
+        flyingObject.roll = 0;
+        flyingObject.speed = 0;
+    }
+
     // Clear the current scene and start rendering with new coordinates
     scene = new THREE.Scene(); // Clear the scene
     startRendering(coords); // Start rendering with new coordinates
@@ -324,6 +333,17 @@ function updateAirplanePosition() {
     camera.getCamera().lookAt(flyingObject.getPos());
 }
 
+function updateSpeedIndicator() {
+    if (!flyingObject) return;
+
+    const speedBar = document.getElementById('speed-bar');
+    const speedText = document.getElementById('speed-text');
+    const speedPercentage = (flyingObject.speed / flyingObject.maxSpeed) * 100; // Calculate percentage
+
+    speedBar.style.height = `${speedPercentage}%`; // Update bar height
+    speedText.textContent = flyingObject.speed.toFixed(1); // Display speed with one decimal
+}
+
 function handleKeyDown(event) {
     // Arrow down is pitchDown true, Arrow up is pitchUp true. W is trust true, S is reverseTrust true, Q is yawRight true, E is yawLeft true, Rightarrow is rollRight true, LeftArrow is rollLeft true
     if (event.key === 'ArrowDown') flyingObject.isPitchDown = true;
@@ -456,6 +476,7 @@ function updateShadowCameraBounds() {
 
 function animate() {
     updateAirplanePosition(); // Update the airplane's position and rotation
+    updateSpeedIndicator(); // Update the speed indicator
     applyDrift(); // Apply drift effect
     updateShadowCameraBounds(); // Dynamically update shadow camera bounds
     scene.add(directionalLight); // Add the directional light to the scene

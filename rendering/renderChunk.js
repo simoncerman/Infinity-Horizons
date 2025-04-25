@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { fetchMapData,renderAll } from '/mapApi.js';
-
+import { fetchMapData, renderAll } from '/mapApi.js';
+import { renderClouds } from './renderClouds.js';
 
 export function renderChunk(x, y, scene, chunkSize, referencePoint) {
     // render ground
@@ -12,6 +12,9 @@ export function renderChunk(x, y, scene, chunkSize, referencePoint) {
     const lonOffset = (x * chunkSize) / 111320; // Adjust for longitude
     const latitude = referencePoint.latitude - latOffset;
     const longitude = referencePoint.longitude + lonOffset;
+
+    // Render clouds for the chunk
+    renderClouds(x, y, scene, chunkSize);
 
     fetchMapData(latitude, longitude, chunkSize, chunkSize).then(data => {
         console.log(data);

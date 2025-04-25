@@ -2,7 +2,7 @@ import * as THREE from 'three';
 export class DirectLight {
     light = null;
     constructor() {
-        this.light = new THREE.DirectionalLight(0xffffff, 4); // Increase directional light intensity
+        this.light = new THREE.DirectionalLight(0xffffff, 3); // Increase directional light intensity
         this.light.position.set(50, 50, 50);
         this.light.castShadow = true; // Enable shadows
         this.light.shadow.mapSize.width = 4096; // Increase shadow map resolution

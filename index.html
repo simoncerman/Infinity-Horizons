@@ -235,6 +235,39 @@
           transform: rotate(360deg);
         }
       }
+      #speed-indicator {
+        position: absolute;
+        top: 50%;
+        left: 20px; /* Move to the left side */
+        transform: translateY(-50%);
+        width: 30px; /* Wider width */
+        height: 150px; /* Smaller height */
+        border: 2px solid white;
+        border-radius: 10px;
+        background: transparent;
+        overflow: hidden;
+        display: flex;
+        align-items: flex-end; /* Align speed bar at the bottom */
+        justify-content: center;
+      }
+
+      #speed-bar {
+        width: 100%; /* Full width for vertical bar */
+        height: 0%; /* Initial height */
+        background: white;
+        transition: height 0.2s ease; /* Smooth filling effect */
+        position: relative;
+      }
+
+      #speed-text {
+        position: absolute;
+        bottom: 5px; /* Position text at the bottom */
+        font-size: 12px; /* Adjusted font size */
+        color: black;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        width: 100%;
+      }
     </style>
   </head>
   <body>
@@ -269,6 +302,11 @@
     <div id="user-info-panel">
       <input type="text" id="address" placeholder="Enter address">
       <button id="fetch-map">Fetch</button>
+    </div>
+    <div id="speed-indicator">
+      <div id="speed-bar">
+        <div id="speed-text">0</div>
+      </div>
     </div>
     <script type="module" src="/main.js"></script>
   </body>

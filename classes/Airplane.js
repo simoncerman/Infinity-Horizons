@@ -4,26 +4,27 @@ import * as THREE from 'three';
 export class Airplane extends FlyingObject {
     constructor(model) {
         super(model);
+        this.maxSpeed = 4; // Set max speed to 4
     }
 
     update() {
 
-        // Use renamed boolean properties to determine the next step
-        if (this.isPitchUp) {
-            this.pitchUp(0.1);
-        } else if (this.isPitchDown) {
-            this.pitchDown(0.1);
-        }
+        // // Use renamed boolean properties to determine the next step
+        // if (this.isPitchUp) {
+        //     this.pitchUp(0.1);
+        // } else if (this.isPitchDown) {
+        //     this.pitchDown(0.1);
+        // }
         if (this.isYawLeft) {
             this.yawLeft(0.1);
         } else if (this.isYawRight) {
             this.yawRight(0.1);
         }
-        if (this.isRollLeft) {
-            this.rollLeft(0.1);
-        } else if (this.isRollRight) {
-            this.rollRight(0.1);
-        }
+        // if (this.isRollLeft) {
+        //     this.rollLeft(0.1);
+        // } else if (this.isRollRight) {
+        //     this.rollRight(0.1);
+        // }
         if (this.isTrust) {
             console.log('trust', this.isTrust);
             this.increaseSpeed();
@@ -64,10 +65,10 @@ export class Airplane extends FlyingObject {
     }
 
     increaseSpeed() {
-        this.speed += 0.01; // Adjust the speed increment as needed
+        this.speed = Math.min(this.speed + 0.01, this.maxSpeed); // Cap speed at maxSpeed
     }
 
     decreaseSpeed() {
-        this.speed -= 0.01; // Adjust the speed decrement as needed
+        this.speed = Math.max(this.speed - 0.01, this.minSpeed); // Ensure speed is non-negative
     }
 }
