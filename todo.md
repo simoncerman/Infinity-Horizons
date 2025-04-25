@@ -1,8 +1,13 @@
 # Todo list toho co je v plánu
 
-- [x] Get position of the user (geolocation) - implemented in a new JS file
-- [x] Request API for map information(Roads, buildings, etc.) - implemented with vector generation
-- [ ] Create flat map depending on the height
-- [ ] Create buildings on the map, roads, etc. - just square
-- [ ] Create textures and objects for the map
-- [ ] Create a simple plane model
+## Required
+- [] Přidat uvítací obrazovku
+- [] Přidat mráčky
+- [] Přidat zvuk
+- [] Přidat možnost vrtulníku / letadlo
+- [] Udělat to nějak zpustitelné bez možnosti zpustit kodu
+
+## Optional
+- [] Přidat trávu a stromy
+- [] Přidat mise které půjdou plnit
+- [] Přidat možnost přistát na budovách

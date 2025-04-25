@@ -64,10 +64,10 @@ export class Airplane extends FlyingObject {
     }
 
     increaseSpeed() {
-        this.speed += 0.001; // Adjust the speed increment as needed
+        this.speed += 0.01; // Adjust the speed increment as needed
     }
 
     decreaseSpeed() {
-        this.speed -= 0.001; // Adjust the speed decrement as needed
+        this.speed -= 0.01; // Adjust the speed decrement as needed
     }
 }
