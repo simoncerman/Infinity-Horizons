@@ -2,7 +2,7 @@
 
 ## Required
 - [X] Přidat uvítací obrazovku
-- [] Přidat mráčky
+- [x] Přidat mráčky
 - [] Přidat zvuk
 - [] Přidat možnost vrtulníku / letadlo
 
