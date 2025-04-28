@@ -27,6 +27,14 @@ export class FlyingObject {
 
         this.model = model; // Assign the model to the instance
     }
+    reset() {
+        this.speed = 0; // Reset speed
+        this.pitch = 0; // Reset pitch
+        this.yaw = 0; // Reset yaw
+        this.roll = 0; // Reset roll
+        this.model.position.set(0, 0, 0); // Reset position
+        this.model.rotation.set(0, 0, 0); // Reset rotation
+    }
 
     update() {}
 

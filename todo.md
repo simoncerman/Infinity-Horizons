@@ -10,6 +10,8 @@
 - [] Particle efekty za letadlem
 - [] Blur efekty
 - [] Po zadání adresy enter nefunguje
+- [] Přidat ukazatel kde je aktuální adresa
+- [] Support for mobile devices
 
 
 Implementace mapy:

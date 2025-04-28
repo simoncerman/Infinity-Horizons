@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { getUserPosition } from './geolocation.js';
-import { fetchMapData, renderAll } from './mapApi.js';
 import { renderChunk } from './rendering/renderChunk.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Camera } from './classes/Camera.js';
@@ -8,9 +7,13 @@ import { DirectLight } from './classes/DirectLight.js';
 import { Airplane } from './classes/Airplane.js';
 
 const chunkSize = 1000; // Size of each chunk in meters
+let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Default starting position if no GPS and no address is provided
+let useGPS = true; // Default to GPS
 
 let scene = new THREE.Scene();
+const loadedChunks = new Set(); // Keep track of already loaded chunks
 
+// Setup renderer
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0xffffff, 1); // Set background color to white
@@ -18,47 +21,35 @@ renderer.shadowMap.enabled = true; // Enable shadows in the renderer
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
 document.body.appendChild(renderer.domElement);
 
+// Camera
 let camera = new Camera(
     new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000)
 );
 let cameraOffset = camera.getCameraOffset(); // Get the camera offset
 
-const largeCubeGeometry = new THREE.BoxGeometry(10, 10, 10); // Large cube dimensions
-const largeCubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for the large cube
-const largeCube = new THREE.Mesh(largeCubeGeometry, largeCubeMaterial);
-largeCube.position.set(0, 0, 0); // Set large cube to the center of the scene
-largeCube.castShadow = true; // Example object casts shadows
-scene.add(largeCube);
-
-// Add lighting to the scene
+/// Light
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increase ambient light intensity
 scene.add(ambientLight);
 let directionalLight = new DirectLight().getLight(); // Create a new instance of DirectLight
 scene.add(directionalLight);
 
-// Ensure shadows are enabled in the renderer
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows
-
 let flyingObject = null; // Reference to the plane model
-
 let planeModel = null; // Reference to the planeModel model
-
-const loadedChunks = new Set(); // Keep track of already loaded chunks
-let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Default starting position
+let helicopterModel = null; // Reference to the helicopter model
 
 (async () => {
     planeModel = await loadModelSync('/models/Plane.glb', { x: 0, y: 20, z: 0 }, scene);
     planeModel.scale.set(1, 1, 1); // Scale the plane model
 
-    let airPlane = new Airplane(planeModel);
+    // Load the helicopter model
+    //TODO: Load the helicopter model
 
+
+    let airPlane = new Airplane(planeModel);
     let helicopter = null; // Reference to the helicopter model
 
+    // select the model depending on the user choice
     flyingObject = airPlane;
-
-    let drift = { x: 0, z: 0 }; // Drift velocity
-    const driftDecay = 0.95; // Drift decay factor (closer to 1 = slower decay)
 
     getUserPosition(startingPosition)
         .then(async (coords) => {
@@ -79,9 +70,6 @@ addressInput.addEventListener('keydown', (event) => {
     }
 });
 
-
-let useGPS = true; // Default to GPS
-
 gpsIcon.addEventListener('click', () => {
     useGPS = true;
     addressInput.value = ''; // Clear address input
@@ -101,28 +89,20 @@ addressInput.addEventListener('focus', () => {
 
 const loadingScreen = document.getElementById('loading-screen');
 
-document.getElementById('play-button').addEventListener('click', async () => {
-    console.log('Play button clicked');
-    const welcomeScreen = document.getElementById('welcome-screen');
-    let coords;
-
-    loadingScreen.classList.add('visible'); // Show loading screen
-
+async function getCoordinates(useGPS, addressInput, startingPosition) {
     if (useGPS) {
         try {
-            coords = await getUserPosition(startingPosition);
+            return await getUserPosition(startingPosition);
         } catch (error) {
             console.error('Error getting GPS location:', error);
             alert('Failed to get GPS location. Please try again.');
-            loadingScreen.classList.remove('visible'); // Hide loading screen
-            return;
+            throw error;
         }
     } else {
         const address = addressInput.value.trim();
         if (!address) {
             alert('Please enter a valid address.');
-            loadingScreen.classList.remove('visible'); // Hide loading screen
-            return;
+            throw new Error('Invalid address');
         }
 
         try {
@@ -131,78 +111,56 @@ document.getElementById('play-button').addEventListener('click', async () => {
 
             if (!geocodeData || geocodeData.length === 0) {
                 alert('Address not found. Please try a different address.');
-                loadingScreen.classList.remove('visible'); // Hide loading screen
-                return;
+                throw new Error('Address not found');
             }
 
-            coords = {
+            return {
                 latitude: parseFloat(geocodeData[0].lat),
                 longitude: parseFloat(geocodeData[0].lon)
             };
         } catch (error) {
             console.error('Error fetching map data:', error);
             alert('Failed to fetch address coordinates. Please try again.');
-            loadingScreen.classList.remove('visible'); // Hide loading screen
-            return;
+            throw error;
         }
     }
+}
 
-    welcomeScreen.classList.add('hidden'); // Add the hidden class to trigger fade-out
-    setTimeout(() => {
-        welcomeScreen.style.display = 'none'; // Remove the welcome screen after animation
-        scene = new THREE.Scene(); // Clear the scene
-        startRendering(coords); // Start the game with the selected coordinates
-        loadingScreen.classList.remove('visible'); // Hide loading screen
-    }, 1000); // Match the duration of the fade-out animation
+document.getElementById('play-button').addEventListener('click', async () => {
+    console.log('Play button clicked');
+    const welcomeScreen = document.getElementById('welcome-screen');
+    loadingScreen.classList.add('visible'); // Show loading screen
+
+    try {
+        const coords = await getCoordinates(useGPS, addressInput, startingPosition);
+
+        welcomeScreen.classList.add('hidden'); // Add the hidden class to trigger fade-out
+        setTimeout(() => {
+            welcomeScreen.style.display = 'none'; // Remove the welcome screen after animation
+            scene = new THREE.Scene(); // Clear the scene
+            startRendering(coords); // Start the game with the selected coordinates
+            loadingScreen.classList.remove('visible'); // Hide loading screen
+        }, 1000); // Match the duration of the fade-out animation
+    } catch {
+        loadingScreen.classList.remove('visible'); // Hide loading screen on error
+    }
 });
 
 document.getElementById('fetch-map').addEventListener('click', async () => {
     console.log('Fetch button clicked');
-    let coords;
-
     loadingScreen.classList.add('visible'); // Show loading screen
 
-    const address = document.getElementById('address').value.trim();
-    if (!address) {
-        alert('Please enter a valid address.');
-        loadingScreen.classList.remove('visible'); // Hide loading screen
-        return;
-    }
-
     try {
-        const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json`);
-        const geocodeData = await geocodeResponse.json();
+        const coords = await getCoordinates(false, document.getElementById('address'), startingPosition);
 
-        if (!geocodeData || geocodeData.length === 0) {
-            alert('Address not found. Please try a different address.');
-            loadingScreen.classList.remove('visible'); // Hide loading screen
-            return;
-        }
-
-        coords = {
-            latitude: parseFloat(geocodeData[0].lat),
-            longitude: parseFloat(geocodeData[0].lon)
-        };
-    } catch (error) {
-        console.error('Error fetching map data:', error);
-        alert('Failed to fetch address coordinates. Please try again.');
+        if (flyingObject) flyingObject.reset(); // Reset the airplane's position
+        scene = new THREE.Scene(); // Clear the scene
+        
+        startRendering(coords); // Start rendering with new coordinates
         loadingScreen.classList.remove('visible'); // Hide loading screen
-        return;
+    } catch {
+        loadingScreen.classList.remove('visible'); // Hide loading screen on error
     }
-
-    // Reset the plane's position
-    if (flyingObject) {
-        flyingObject.getModel().position.set(0, 20, 0); // Reset to initial position
-        flyingObject.pitch = 0;
-        flyingObject.yaw = 0;
-        flyingObject.roll = 0;
-        flyingObject.speed = 0;
-    }
-
-    // Clear the current scene and start rendering with new coordinates
-    scene = new THREE.Scene(); // Clear the scene
-    startRendering(coords); // Start rendering with new coordinates
-    loadingScreen.classList.remove('visible'); // Hide loading screen
 });
 
 function getChunkCoordinates(position, chunkSize) {
@@ -227,7 +185,7 @@ function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
         loadedChunks.add(chunkKey);
         renderChunk(currentChunk.x, currentChunk.z, scene, chunkSize, referencePoint);
     }
-    // If i get to border of chunk, load the next chunk. If i will be like 200 meters from the border, load the next chunk (use realPosition)
+    // If i get to border of chunk, load the next chunk. If i will be like 1/2 chunk from the border, load the next chunk (use realPosition)
     if (Math.abs(realPosition.x - currentChunk.x * chunkSize) < chunkSize / 2) {
         const nextChunkX = currentChunk.x + (realPosition.x > currentChunk.x * chunkSize ? 1 : -1);
         const nextChunkKeyX = `${nextChunkX},${currentChunk.z}`;
@@ -244,52 +202,24 @@ function checkAndLoadChunks(cameraPosition, chunkSize, scene, referencePoint) {
             renderChunk(currentChunk.x, nextChunkZ, scene, chunkSize, referencePoint);
         }
     }
-    // Load the current chunk if not already loaded
 }
 
 function startRendering(coords) {
     clearScene(); // Clear the scene before rendering new chunks
     loadedChunks.clear(); // Clear loaded chunks
     startingPosition = coords; // Update starting position with geolocation data
+
     // Save geolocation data to localStorage
     localStorage.setItem('latitude', coords.latitude);
     localStorage.setItem('longitude', coords.longitude);
 
     try {
-        clearScene();
         scene.add(ambientLight);
         renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
         renderer.render(scene, camera.getCamera()); // Initial render
     } catch (error) {
         console.error('Error fetching map data:', error);
     }
-}
-
-function loadModel(path, position, scene, callback) {
-    const loader = new GLTFLoader();
-    loader.load(
-        path,
-        (gltf) => {
-            const model = gltf.scene;
-            model.position.set(position.x, position.y, position.z);
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true; // Enable shadows for model meshes
-                    child.receiveShadow = true; // Enable receiving shadows
-                }
-            });
-            if (path === '/models/Low Poly Tree.glb') {
-                cachedTreeModel = model; // Cache the tree model
-            }
-            scene.add(model);
-            console.log(`Model loaded from ${path}`);
-            if (callback) callback(model);
-        },
-        undefined,
-        (error) => {
-            console.error(`Error loading model from ${path}:`, error);
-        }
-    );
 }
 
 async function loadModelSync(path, position, scene) {
@@ -318,13 +248,6 @@ async function loadModelSync(path, position, scene) {
         );
     });
 }
-
-// Enable frustum culling for all objects in the scene
-scene.traverse((object) => {
-    if (object.isMesh) {
-        object.frustumCulled = true; // Skip rendering objects outside the camera's view
-    }
-});
 
 function updateAirplanePosition() {
     if (!flyingObject) return;
@@ -376,100 +299,6 @@ function handleKeyUp(event) {
     if (event.key === 'ArrowLeft') flyingObject.isRollLeft = false;
 }
 
-function handleMouseDown(event) {
-    // controls.dragging = true;
-    // controls.dragStart.x = event.clientX;
-    // controls.dragStart.y = event.clientY;
-    // drift.x = 0; // Reset drift when dragging starts
-    // drift.z = 0;
-}
-
-function handleMouseMove(event) {
-    // if (controls.dragging) {
-    //     // It will update the position of the camera, the rotation will be 45 in x and 45 in y
-    //     const deltaX = event.clientX - controls.dragStart.x;
-    //     const deltaY = event.clientY - controls.dragStart.y;
-    //     camera.position.x -= deltaX * 0.07; // Adjust the multiplier for sensitivity
-    //     camera.position.z -= deltaY * 0.07; // Adjust the multiplier for sensitivity
-    //     //camera.rotation.x = controls.rotation.x;
-    //     camera.rotation.y = controls.rotation.y;
-    //     camera.rotation.z = controls.rotation.z;
-
-    //     drift.x = deltaX * 0.07; // Update drift velocity
-    //     drift.z = deltaY * 0.07;
-
-    //     controls.dragStart.x = event.clientX; // Update drag start position
-    //     controls.dragStart.y = event.clientY;
-    // }
-}
-
-function handleMouseUp() {}
-
-function handleScroll(event) {
-    const scrollSpeed = 1; // Adjust the multiplier for sensitivity
-    camera.position.y -= event.deltaY * 0.03 * scrollSpeed; // Scroll up moves down, scroll down moves up
-    camera.position.y = Math.max(5, camera.position.y); // Prevent the camera from going below ground level (minimum height is 5)
-
-    // Adjust the camera's X rotation based on height
-    const maxAngle = -Math.PI / 4; // Maximum downward angle (-45 degrees)
-    const minAngle = 0; // Straight angle (0 degrees)
-    const heightRange = 50; // Height range for smooth transition
-    const normalizedHeight = Math.min(1, (camera.position.y - 5) / heightRange); // Normalize height between 0 and 1
-    camera.rotation.x = minAngle + normalizedHeight * (maxAngle - minAngle); // Interpolate between minAngle and maxAngle
-}
-
-function updateCameraPosition() {
-    const speed = 4; // Increased speed (4x faster)
-    if (controls.forward) {
-        camera.position.z -= Math.cos(controls.rotation.y) * speed;
-        camera.position.x -= Math.sin(controls.rotation.y) * speed;
-    }
-    if (controls.backward) {
-        camera.position.z += Math.cos(controls.rotation.y) * speed;
-        camera.position.x += Math.sin(controls.rotation.y) * speed;
-    }
-    if (controls.left) {
-        camera.position.x -= Math.cos(controls.rotation.y) * speed;
-        camera.position.z += Math.sin(controls.rotation.y) * speed;
-    }
-    if (controls.right) {
-        camera.position.x += Math.cos(controls.rotation.y) * speed;
-        camera.position.z -= Math.sin(controls.rotation.y) * speed;
-    }
-    //camera.rotation.x = controls.rotation.x;
-    camera.rotation.y = controls.rotation.y;
-    camera.rotation.z = controls.rotation.z;
-
-    // update direct light position
-    // update direction light left and right and up and down
-    directionalLight.shadow.camera.left = camera.position.x - 400;
-    directionalLight.shadow.camera.right = camera.position.x + 400;
-    directionalLight.shadow.camera.top = camera.position.z + 400;
-    directionalLight.shadow.camera.bottom = camera.position.z - 400;
-}
-
-function applyDrift() {
-    // if (!controls.dragging) {
-    //     camera.position.x -= drift.x;
-    //     camera.position.z -= drift.z;
-
-    //     drift.x *= driftDecay; // Apply decay to drift
-    //     drift.z *= driftDecay;
-
-    //     // Stop drift when it's very small
-    //     if (Math.abs(drift.x) < 0.001) drift.x = 0;
-    //     if (Math.abs(drift.z) < 0.001) drift.z = 0;
-    // }
-}
-
-function updatePlanePosition() {
-    if (!plane) return;
-
-    // Synchronize the plane's position with the camera
-    plane.position.set(camera.position.x, camera.position.y - 20, camera.position.z);
-    plane.rotation.copy(camera.rotation); // Match the plane's rotation with the camera
-}
-
 // Function to dynamically update shadow camera bounds
 function updateShadowCameraBounds() {
     const cameraPosition = camera.getCamera().position;
@@ -483,9 +312,14 @@ function updateShadowCameraBounds() {
 }
 
 function animate() {
+        // Enable frustum culling for all objects in the scene
+    scene.traverse((object) => {
+        if (object.isMesh) {
+            object.frustumCulled = true; // Skip rendering objects outside the camera's view
+        }
+    });
     updateAirplanePosition(); // Update the airplane's position and rotation
     updateSpeedIndicator(); // Update the speed indicator
-    applyDrift(); // Apply drift effect
     updateShadowCameraBounds(); // Dynamically update shadow camera bounds
     scene.add(directionalLight); // Add the directional light to the scene
     checkAndLoadChunks(camera.getCamera().position, chunkSize, scene, startingPosition);
@@ -500,7 +334,3 @@ function clearScene() {
 
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);
-window.addEventListener('mousedown', handleMouseDown);
-window.addEventListener('mousemove', handleMouseMove);
-window.addEventListener('mouseup', handleMouseUp);
-window.addEventListener('wheel', handleScroll);
