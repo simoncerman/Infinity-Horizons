@@ -1,12 +1,19 @@
 # Todo list toho co je v plánu
 
-## Required
-- [X] Přidat uvítací obrazovku
-- [x] Přidat mráčky
+- [] Kolize
+- [] Flight model letadla
 - [] Přidat zvuk
 - [] Přidat možnost vrtulníku / letadlo
-
-## Optional
-- [] Přidat trávu a stromy
 - [] Přidat mise které půjdou plnit
+    - [] Průlet kruhy nad městem (required lepší letadlo)
 - [] Přidat možnost přistát na budovách
+- [] Particle efekty za letadlem
+- [] Blur efekty
+- [] Po zadání adresy enter nefunguje
+
+
+Implementace mapy:
+- [] Lesy a vegetace
+- [] Moře, pláže a řeky
+- [] Vylepšené budovy
+- [] Vylepšené silnice

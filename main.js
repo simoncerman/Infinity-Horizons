@@ -72,6 +72,14 @@ let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Defau
 // User info panel elements
 const gpsIcon = document.getElementById('gps-icon');
 const addressInput = document.getElementById('address-input');
+
+addressInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        document.getElementById('play-button').click();
+    }
+});
+
+
 let useGPS = true; // Default to GPS
 
 gpsIcon.addEventListener('click', () => {
