@@ -268,6 +268,42 @@
         text-align: center;
         width: 100%;
       }
+
+      #settings-icon {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 2000;
+      }
+      #settings-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        display: none;
+        z-index: 3000;
+      }
+      #settings-modal h2 {
+        margin-top: 0;
+      }
+      #settings-modal button {
+        margin-top: 10px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        background: black;
+        color: white;
+        cursor: pointer;
+      }
+      #settings-modal button:hover {
+        background: gray;
+      }
     </style>
   </head>
   <body>
@@ -307,6 +343,15 @@
       <div id="speed-bar">
         <div id="speed-text">0</div>
       </div>
+    </div>
+    <div id="settings-icon">⚙️</div>
+    <div id="settings-modal">
+      <h2>Settings</h2>
+      <label>
+        <input type="checkbox" id="tilted-view-checkbox">
+        Tilted View (EXPERIMENTAL)
+      </label>
+      <button id="save-settings">Save</button>
     </div>
     <script type="module" src="/main.js"></script>
   </body>

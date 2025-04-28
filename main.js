@@ -5,6 +5,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { Camera } from './classes/Camera.js';
 import { DirectLight } from './classes/DirectLight.js';
 import { Airplane } from './classes/Airplane.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { HorizontalTiltShiftShader } from 'three/examples/jsm/shaders/HorizontalTiltShiftShader.js';
+import { VerticalTiltShiftShader } from 'three/examples/jsm/shaders/VerticalTiltShiftShader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader.js';
+
+import * as dat from 'dat.gui';
 
 const chunkSize = 1000; // Size of each chunk in meters
 let startingPosition = { latitude: 50.2093125, longitude: 15.8264718 }; // Default starting position if no GPS and no address is provided
@@ -28,14 +36,62 @@ let camera = new Camera(
 let cameraOffset = camera.getCameraOffset(); // Get the camera offset
 
 /// Light
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increase ambient light intensity
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Increase intensity to 1.0
 scene.add(ambientLight);
-let directionalLight = new DirectLight().getLight(); // Create a new instance of DirectLight
+
+let directionalLight = new DirectLight().getLight();
+directionalLight.intensity = 4; // Increase intensity to 2.0
 scene.add(directionalLight);
 
 let flyingObject = null; // Reference to the plane model
 let planeModel = null; // Reference to the planeModel model
 let helicopterModel = null; // Reference to the helicopter model
+
+let composer; // Declare composer globally
+let horizontalTiltShiftPass, verticalTiltShiftPass; // Declare passes globally
+
+function addTiltShiftEffect() {
+    composer = new EffectComposer(renderer); // Initialize composer globally
+    
+    const gammaCorrectionPass = new ShaderPass(GammaCorrectionShader);  
+    composer.addPass(gammaCorrectionPass); // Add gamma correction pass
+    const renderPass = new RenderPass(scene, camera.getCamera());
+    composer.addPass(renderPass);
+
+    // Horizontal tilt-shift pass
+    horizontalTiltShiftPass = new ShaderPass(HorizontalTiltShiftShader);
+    horizontalTiltShiftPass.uniforms.h.value = 0.005; // Set horizontal blur strength
+    horizontalTiltShiftPass.uniforms.r.value = 0.55; // Set focus area
+    composer.addPass(horizontalTiltShiftPass);
+
+    // Vertical tilt-shift pass
+    verticalTiltShiftPass = new ShaderPass(VerticalTiltShiftShader);
+    verticalTiltShiftPass.uniforms.v.value = 0.005; // Set vertical blur strength
+    verticalTiltShiftPass.uniforms.r.value = 0.55; // Set focus area
+    composer.addPass(verticalTiltShiftPass);
+
+    setupTiltShiftGUI(); // Add GUI controls for real-time adjustments
+}
+
+function setupTiltShiftGUI() {
+    const gui = new dat.GUI();
+    const tiltShiftParams = {
+        horizontalBlur: horizontalTiltShiftPass.uniforms.h.value,
+        verticalBlur: verticalTiltShiftPass.uniforms.v.value,
+        focusArea: horizontalTiltShiftPass.uniforms.r.value,
+    };
+
+    gui.add(tiltShiftParams, 'horizontalBlur', 0.0, 0.01).onChange((value) => {
+        horizontalTiltShiftPass.uniforms.h.value = value;
+    });
+    gui.add(tiltShiftParams, 'verticalBlur', 0.0, 0.01).onChange((value) => {
+        verticalTiltShiftPass.uniforms.v.value = value;
+    });
+    gui.add(tiltShiftParams, 'focusArea', 0.0, 1.0).onChange((value) => {
+        horizontalTiltShiftPass.uniforms.r.value = value;
+        verticalTiltShiftPass.uniforms.r.value = value;
+    });
+}
 
 (async () => {
     planeModel = await loadModelSync('/models/Plane.glb', { x: 0, y: 20, z: 0 }, scene);
@@ -213,10 +269,16 @@ function startRendering(coords) {
     localStorage.setItem('latitude', coords.latitude);
     localStorage.setItem('longitude', coords.longitude);
 
+    const { tiltedView } = loadSettings(); // Check if Tilted View is enabled
+    if (tiltedView) {
+        addTiltShiftEffect(); // Add tilt-shift effect
+    } else {
+        composer = null; // Ensure composer is not used
+    }
+
     try {
         scene.add(ambientLight);
         renderer.setAnimationLoop(animate); // Ensure the animate function is called in a loop
-        renderer.render(scene, camera.getCamera()); // Initial render
     } catch (error) {
         console.error('Error fetching map data:', error);
     }
@@ -311,8 +373,48 @@ function updateShadowCameraBounds() {
     directionalLight.target.updateMatrixWorld(); // Ensure the target's matrix is updated
 }
 
+// Settings modal logic
+const settingsIcon = document.getElementById('settings-icon');
+const settingsModal = document.getElementById('settings-modal');
+const tiltedViewCheckbox = document.getElementById('tilted-view-checkbox');
+const saveSettingsButton = document.getElementById('save-settings');
+
+// Load settings from localStorage
+function loadSettings() {
+    const tiltedView = localStorage.getItem('tiltedView') === 'true';
+    tiltedViewCheckbox.checked = tiltedView;
+    return { tiltedView };
+}
+
+// Save settings to localStorage
+function saveSettings() {
+    localStorage.setItem('tiltedView', tiltedViewCheckbox.checked);
+    settingsModal.style.display = 'none';
+    applySettings();
+}
+
+// Apply settings
+function applySettings() {
+    const { tiltedView } = loadSettings();
+    if (tiltedView) {
+        camera.getCamera().rotation.x = -Math.PI / 180 * 75; // Apply tilted view
+    } else {
+        camera.getCamera().rotation.x = -Math.PI / 180 * 50; // Default view
+    }
+    camera.getCamera().updateProjectionMatrix();
+}
+
+// Event listeners for settings
+settingsIcon.addEventListener('click', () => {
+    settingsModal.style.display = 'block';
+});
+saveSettingsButton.addEventListener('click', saveSettings);
+
+// Apply settings on load
+applySettings();
+
 function animate() {
-        // Enable frustum culling for all objects in the scene
+    // Enable frustum culling for all objects in the scene
     scene.traverse((object) => {
         if (object.isMesh) {
             object.frustumCulled = true; // Skip rendering objects outside the camera's view
@@ -323,7 +425,12 @@ function animate() {
     updateShadowCameraBounds(); // Dynamically update shadow camera bounds
     scene.add(directionalLight); // Add the directional light to the scene
     checkAndLoadChunks(camera.getCamera().position, chunkSize, scene, startingPosition);
-    renderer.render(scene, camera.getCamera()); // Render the scene
+
+    if (composer) {
+        composer.render(); // Use composer to render with tilt-shift effect
+    } else {
+        renderer.render(scene, camera.getCamera()); // Classic render without effects
+    }
 }
 
 function clearScene() {
