@@ -19,3 +19,6 @@ Implementace mapy:
 - [] Moře, pláže a řeky
 - [] Vylepšené budovy
 - [] Vylepšené silnice
+
+mapApi.js:45 Uncaught (in promise) Error: API request failed with status 429
+    at fetchMapData (mapApi.js:45:19)

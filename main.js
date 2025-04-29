@@ -36,7 +36,7 @@ let camera = new Camera(
 let cameraOffset = camera.getCameraOffset(); // Get the camera offset
 
 /// Light
-const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // Increase intensity to 1.0
+const ambientLight = new THREE.AmbientLight(0xffffff, 2.0); // Increase intensity to 1.0
 scene.add(ambientLight);
 
 let directionalLight = new DirectLight().getLight();
@@ -60,13 +60,13 @@ function addTiltShiftEffect() {
 
     // Horizontal tilt-shift pass
     horizontalTiltShiftPass = new ShaderPass(HorizontalTiltShiftShader);
-    horizontalTiltShiftPass.uniforms.h.value = 0.005; // Set horizontal blur strength
+    horizontalTiltShiftPass.uniforms.h.value = 0.003; // Set horizontal blur strength
     horizontalTiltShiftPass.uniforms.r.value = 0.55; // Set focus area
     composer.addPass(horizontalTiltShiftPass);
 
     // Vertical tilt-shift pass
     verticalTiltShiftPass = new ShaderPass(VerticalTiltShiftShader);
-    verticalTiltShiftPass.uniforms.v.value = 0.005; // Set vertical blur strength
+    verticalTiltShiftPass.uniforms.v.value = 0.003; // Set vertical blur strength
     verticalTiltShiftPass.uniforms.r.value = 0.55; // Set focus area
     composer.addPass(verticalTiltShiftPass);
 
