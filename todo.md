@@ -1,5 +1,4 @@
 # Todo list toho co je v plánu
-
 - [] Kolize
 - [] Flight model letadla
 - [] Přidat zvuk
